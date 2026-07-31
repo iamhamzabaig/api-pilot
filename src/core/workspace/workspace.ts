@@ -54,6 +54,9 @@ export class Workspace {
   /** Non-fatal configuration problems, worth showing the user once. */
   readonly warnings: readonly string[];
 
+  /** Configured spec documents, resolved to absolute paths. */
+  readonly specPaths: readonly string[];
+
   readonly #declarations: ReadonlyMap<string, EnvironmentDeclaration>;
   readonly #defaultEnvironment: string | undefined;
   readonly #resolvers: readonly SecretResolver[];
@@ -62,11 +65,13 @@ export class Workspace {
     root: string,
     declarations: ReadonlyMap<string, EnvironmentDeclaration>,
     defaultEnvironment: string | undefined,
+    specs: readonly string[],
     warnings: readonly string[],
     resolvers: readonly SecretResolver[],
   ) {
     this.root = root;
     this.cacheDir = join(root, WORKSPACE_DIRNAME, CACHE_DIRNAME);
+    this.specPaths = specs.map((path) => resolve(root, path));
     this.#declarations = declarations;
     this.#defaultEnvironment = defaultEnvironment;
     this.warnings = warnings;
@@ -131,6 +136,9 @@ export class Workspace {
       resolve(root),
       declarations,
       local?.default ?? shared.default,
+      // A local file replaces the spec list outright rather than appending:
+      // "index these instead" is the reason to override it at all.
+      local?.specs !== undefined && local.specs.length > 0 ? local.specs : shared.specs,
       warnings,
       resolvers,
     );

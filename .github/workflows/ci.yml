@@ -39,11 +39,19 @@ jobs:
       - name: Typecheck
         run: pnpm run typecheck
 
-      - name: Test
-        run: pnpm test
-
+      # Before the tests: the cold-start budget and the docs staleness check
+      # both measure the built output, and would quietly skip without it.
       - name: Build
         run: pnpm run build
+
+      - name: Test
+        run: pnpm run test:coverage
+
+      - name: Cold start budget (NFR N1)
+        run: pnpm run bench
+
+      - name: CLI reference is current
+        run: pnpm run docs:check
 
       - name: Smoke test the built CLI
         run: node dist/cli/index.js --version

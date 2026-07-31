@@ -36,6 +36,7 @@ export {
 export { type PathSegment, parsePath, queryPath } from "./core/inspect/json-path.js";
 export {
   assertHostAllowed,
+  assertProtocolAllowed,
   assertRequestAllowed,
   type Classification,
   isHostAllowed,
@@ -60,6 +61,12 @@ export {
   type RequestBody,
   type RetryPolicy,
 } from "./core/request/types.js";
+export {
+  type RunOptions,
+  type RunResult,
+  replayRun,
+  runRequest,
+} from "./core/run/run.js";
 export {
   DEFAULT_RESOLVERS,
   envResolver,
@@ -97,8 +104,12 @@ export {
 export { OperationSearch, type SearchHit, stem, tokenise } from "./core/spec/search.js";
 export { SpecIndex } from "./core/spec/spec-index.js";
 export {
+  DEFAULT_HISTORY_LIMIT,
+  type HistoryQuery,
   type PutOptions,
   ResponseStore,
+  type StoredRequestBody,
+  type StoredRequestIntent,
   type StoredRequestSummary,
   type StoredResponseMeta,
 } from "./core/store/response-store.js";

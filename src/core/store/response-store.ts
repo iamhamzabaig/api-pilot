@@ -1,9 +1,11 @@
 import { createHash, randomBytes } from "node:crypto";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { ApiPilotError } from "../errors.js";
 import type { HeaderPair, HttpResponse } from "../exec/execute.js";
 import type { Redactor } from "../redact/redactor.js";
+import type { RequestIntent } from "../request/prepare.js";
+import type { RequestBody } from "../request/types.js";
 
 /**
  * Persists full responses so the model never has to hold one. `api_call`
@@ -30,7 +32,31 @@ export interface PutOptions {
    * and inspect needs the real bytes. It is local and gitignored.
    */
   readonly redactor?: Pick<Redactor, "redactDeep">;
+
+  /**
+   * The caller's pre-interpolation intent, kept so the run can be replayed.
+   *
+   * This is the template — `{{vars}}` and `${env:...}` references, not their
+   * values — which is what makes replay against a *different* environment the
+   * natural operation rather than a special case. It still passes through the
+   * redactor with the rest of the record, because a caller is free to hardcode
+   * a credential instead of referencing one.
+   */
+  readonly intent?: RequestIntent;
 }
+
+/**
+ * A binary body is a file upload: too large to belong in a run log, and it does
+ * not survive JSON. It is dropped, and replay reports that rather than silently
+ * re-sending a different request.
+ */
+export type StoredRequestBody = Exclude<RequestBody, { kind: "bytes" }>;
+
+export type StoredRequestIntent = Omit<RequestIntent, "body"> & {
+  readonly body?: StoredRequestBody;
+  /** True when a binary body was dropped on the way in. */
+  readonly bodyOmitted?: true;
+};
 
 /** What was sent. Callers must pass redacted values — this module does not redact. */
 export interface StoredRequestSummary {
@@ -45,6 +71,8 @@ export interface StoredResponseMeta {
   /** ISO 8601. */
   readonly createdAt: string;
   readonly request: StoredRequestSummary;
+  /** Absent on runs recorded before replay existed, and on runs put without one. */
+  readonly intent?: StoredRequestIntent;
   readonly status: number;
   readonly statusText: string;
   readonly headers: readonly HeaderPair[];
@@ -65,6 +93,26 @@ export interface StoredResponseMeta {
  */
 const HANDLE_PATTERN = /^r_[0-9a-z]{8,32}$/;
 
+export const DEFAULT_HISTORY_LIMIT = 20;
+
+/** Filters for the run log. Everything is optional; all given filters must match. */
+export interface HistoryQuery {
+  readonly limit?: number;
+  readonly method?: string;
+  readonly status?: number;
+  /** Substring match against the redacted request URL. */
+  readonly urlContains?: string;
+}
+
+function matches(meta: StoredResponseMeta, query: HistoryQuery): boolean {
+  if (query.method !== undefined && meta.request.method !== query.method.toUpperCase())
+    return false;
+  if (query.status !== undefined && meta.status !== query.status) return false;
+  if (query.urlContains !== undefined && !meta.request.url.includes(query.urlContains))
+    return false;
+  return true;
+}
+
 export class ResponseStore {
   readonly #root: string;
 
@@ -84,6 +132,7 @@ export class ResponseStore {
       handle,
       createdAt: new Date().toISOString(),
       request,
+      ...(options.intent === undefined ? {} : { intent: toStoredIntent(options.intent) }),
       status: response.status,
       statusText: response.statusText,
       headers: response.headers,
@@ -123,6 +172,51 @@ export class ResponseStore {
     } catch (error) {
       throw new ApiPilotError("STORE_IO", `Stored response ${handle} is corrupt`, { cause: error });
     }
+  }
+
+  /**
+   * The run log. There is no separate history store: a run *is* a metadata
+   * record, and this module already owns that layout.
+   *
+   * Handles are time-prefixed base36, so sorting the filenames descending is a
+   * reverse-chronological sort — which means a limited query reads only the
+   * records it returns instead of the whole store.
+   */
+  async list(query: HistoryQuery = {}): Promise<readonly StoredResponseMeta[]> {
+    const limit = query.limit ?? DEFAULT_HISTORY_LIMIT;
+    if (limit <= 0) return [];
+
+    let names: string[];
+    try {
+      names = await readdir(join(this.#root, "meta"));
+    } catch (error) {
+      // No cache directory yet is an empty history, not a failure.
+      if (isNotFound(error)) return [];
+      throw new ApiPilotError("STORE_IO", "Could not read the run log", { cause: error });
+    }
+
+    const handles = names
+      .filter((name) => name.endsWith(".json"))
+      .map((name) => name.slice(0, -".json".length))
+      .filter((handle) => HANDLE_PATTERN.test(handle))
+      .sort()
+      .reverse();
+
+    const out: StoredResponseMeta[] = [];
+    for (const handle of handles) {
+      if (out.length >= limit) break;
+      // ponytail: a corrupt or half-written record is skipped rather than
+      // reported, so one bad file cannot break `history` entirely. Surface a
+      // warnings channel here if silent skipping ever hides a real problem.
+      let meta: StoredResponseMeta;
+      try {
+        meta = await this.get(handle);
+      } catch {
+        continue;
+      }
+      if (matches(meta, query)) out.push(meta);
+    }
+    return out;
   }
 
   async readBody(handle: string): Promise<Uint8Array> {
@@ -183,6 +277,12 @@ export class ResponseStore {
     }
     return join(this.#root, "objects", sha256.slice(0, 2), sha256);
   }
+}
+
+function toStoredIntent(intent: RequestIntent): StoredRequestIntent {
+  if (intent.body?.kind !== "bytes") return intent as StoredRequestIntent;
+  const { body: _dropped, ...rest } = intent;
+  return { ...rest, bodyOmitted: true };
 }
 
 /** Time-prefixed so a lexical sort is a chronological sort. */

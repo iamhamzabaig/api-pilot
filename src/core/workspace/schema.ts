@@ -40,6 +40,13 @@ export const EnvironmentSchema = z.object({
 export const EnvironmentsFileSchema = z.object({
   version: z.literal(1).default(1),
   default: z.string().optional(),
+  /**
+   * Spec documents to index, relative to the workspace root (absolute is
+   * allowed for a spec kept outside it). BLUEPRINT §17 put these in a separate
+   * `config.yaml`; one array does not justify a second file, a second schema
+   * and a second loader, so they live here until something else needs that file.
+   */
+  specs: z.array(z.string().min(1)).default([]),
   environments: z.record(z.string(), EnvironmentSchema),
 });
 

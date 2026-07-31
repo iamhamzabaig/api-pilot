@@ -4,6 +4,7 @@ import {
   assertRequestAllowed,
   isHostAllowed,
   type PolicyEnvironment,
+  redirectGuard,
 } from "../../src/core/policy/policy.js";
 
 function env(overrides: Partial<PolicyEnvironment> = {}): PolicyEnvironment {
@@ -23,6 +24,33 @@ function codeOf(fn: () => void): string | undefined {
     return (error as ApiPilotError).code;
   }
 }
+
+describe("protocol gate", () => {
+  it.each(["http://api.example.com/x", "https://api.example.com/x"])("allows %s", (url) => {
+    expect(
+      codeOf(() => assertRequestAllowed(new URL(url), "GET", env(), { confirmed: false })),
+    ).toBeUndefined();
+  });
+
+  // A Windows path parses as scheme `c:` with no hostname. Without this gate it
+  // reached the host check and was reported as `Host  is not allowed`.
+  it.each([
+    "file:///etc/passwd",
+    "data:text/plain,hello",
+    "ftp://api.example.com/x",
+    "C:/Program Files/Git/v1/invoices",
+  ])("refuses %s", (url) => {
+    expect(
+      codeOf(() => assertRequestAllowed(new URL(url), "GET", env(), { confirmed: false })),
+    ).toBe("POLICY_BLOCKED");
+  });
+
+  it("refuses a redirect that changes protocol", () => {
+    const guard = redirectGuard(env({ allowedHosts: ["api.example.com"] }));
+    expect(guard(new URL("https://api.example.com/next"))).toBe(true);
+    expect(guard(new URL("file:///etc/passwd"))).toBe(false);
+  });
+});
 
 describe("isHostAllowed", () => {
   it("matches exactly", () => {

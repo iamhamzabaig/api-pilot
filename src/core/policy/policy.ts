@@ -23,14 +23,31 @@ export interface PolicyContext {
   readonly confirmed: boolean;
 }
 
+/**
+ * Only these reach the network. Everything else — `file:`, `data:`, and on
+ * Windows a bare `C:\...` path, which parses as a URL with scheme `c:` and no
+ * hostname — is refused here rather than falling through to the host check and
+ * being reported as the baffling "Host  is not allowed".
+ */
+const ALLOWED_PROTOCOLS: ReadonlySet<string> = new Set(["http:", "https:"]);
+
 export function assertRequestAllowed(
   url: URL,
   method: string,
   environment: PolicyEnvironment,
   context: PolicyContext,
 ): void {
+  assertProtocolAllowed(url);
   assertHostAllowed(url, environment);
   assertMutationConfirmed(method, environment, context);
+}
+
+export function assertProtocolAllowed(url: URL): void {
+  if (ALLOWED_PROTOCOLS.has(url.protocol)) return;
+
+  throw new ApiPilotError("POLICY_BLOCKED", `Protocol ${url.protocol} is not allowed`, {
+    hint: "API Pilot speaks http and https only. A local file path is not a URL.",
+  });
 }
 
 export function assertHostAllowed(url: URL, environment: PolicyEnvironment): void {
@@ -97,5 +114,6 @@ export function isHostAllowed(hostname: string, allowedHosts: readonly string[])
  * gets exactly the same host check the original request did.
  */
 export function redirectGuard(environment: PolicyEnvironment): (url: URL) => boolean {
-  return (url) => isHostAllowed(url.hostname, environment.allowedHosts);
+  return (url) =>
+    ALLOWED_PROTOCOLS.has(url.protocol) && isHostAllowed(url.hostname, environment.allowedHosts);
 }
