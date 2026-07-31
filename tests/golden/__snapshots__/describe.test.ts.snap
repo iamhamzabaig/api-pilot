@@ -1,0 +1,211 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`describe golden output > renders createCustomer 1`] = `
+"POST /v1/customers
+Creates a new customer object.
+id: createCustomer · tags: Customers · auth: bearerAuth (http: bearer)
+
+body (application/json, required):
+  {
+    email?: string(email)
+    name?: string
+    metadata?: { [key: string]: string }
+  }
+
+responses:
+  200 application/json
+    {
+      created: number
+      updated?: number | null
+      id: string
+      email: string(email)
+      name?: string | null
+      balance?: number
+      metadata?: { [key: string]: string }
+    }
+  others: 400"
+`;
+
+exports[`describe golden output > renders createInvoice 1`] = `
+"POST /v1/invoices
+This endpoint creates a draft invoice for a given customer.
+id: createInvoice · tags: Invoices · auth: bearerAuth (http: bearer)
+
+body (application/json, required):
+  {
+    customer: string
+    auto_advance?: boolean
+    description?: string | null
+  }
+
+responses:
+  200 application/json
+    {
+      id: string
+      customer: string
+      status: "draft" | "open" | "paid" | "uncollectible" | "void"
+      amount_due?: number
+      lines?: array of {
+        id: string
+        price: string
+        quantity?: number
+      }
+    }"
+`;
+
+exports[`describe golden output > renders getCommentThread 1`] = `
+"GET /comments/{id}
+Retrieve a comment and its nested replies
+id: getCommentThread
+
+path:
+  id: string required
+
+responses:
+  200 application/json
+    {
+      id: string
+      body: string
+      parent?: string | null
+      author?: { id?: string; latest_comment?: Comment }
+      replies?: Comment[]
+    }"
+`;
+
+exports[`describe golden output > renders listCustomers 1`] = `
+"GET /v1/customers
+Returns a list of your customers.
+id: listCustomers · tags: Customers · auth: bearerAuth (http: bearer)
+
+query:
+  limit: number — A limit on the number of objects to be returned, between 1 and 100.
+  email: string(email) — A case-sensitive filter on the list based on the customer's email field.
+
+responses:
+  200 application/json
+    {
+      object: "list"
+      data: array of {
+        created: number
+        updated?: number | null
+        id: string
+        email: string(email)
+        name?: string | null
+        balance?: number
+        metadata?: { [key: string]: string }
+      }
+      has_more: boolean
+    }
+  others: 401"
+`;
+
+exports[`describe golden output > renders payInvoice 1`] = `
+"POST /v1/invoices/{invoice}/pay
+Stripe automatically creates and then attempts to collect payment on invoices.
+id: payInvoice · tags: Invoices · auth: bearerAuth (http: bearer)
+
+path:
+  invoice: string required
+
+responses:
+  200 application/json
+    {
+      id: string
+      customer: string
+      status: "draft" | "open" | "paid" | "uncollectible" | "void"
+      amount_due?: number
+      lines?: array of {
+        id: string
+        price: string
+        quantity?: number
+      }
+    }"
+`;
+
+exports[`describe golden output > renders refundCharge 1`] = `
+"POST /v1/charges/{charge}/refund
+Refunds a charge that has previously been created but not yet refunded.
+id: refundCharge · tags: Charges · auth: bearerAuth (http: bearer) · DEPRECATED
+
+path:
+  charge: string required
+
+responses:
+  200 application/json"
+`;
+
+exports[`describe golden output > renders retrieveCustomer 1`] = `
+"GET /v1/customers/{customer}
+Retrieves a Customer object.
+id: retrieveCustomer · tags: Customers · auth: bearerAuth (http: bearer)
+
+path:
+  customer: string required — The identifier of the customer to be retrieved.
+
+responses:
+  200 application/json
+    {
+      created: number
+      updated?: number | null
+      id: string
+      email: string(email)
+      name?: string | null
+      balance?: number
+      metadata?: { [key: string]: string }
+    }
+  others: 404"
+`;
+
+exports[`describe golden output > renders retrieveOrder 1`] = `
+"GET /orders/{order}
+Retrieve an order by its identifier
+id: retrieveOrder
+
+path:
+  order: string required — The identifier of the order.
+
+responses:
+  200 application/json
+    {
+      id: string
+      total: number
+      currency?: "usd" | "eur" | "gbp"
+      lines?: { sku?: string; quantity?: number }[]
+    }"
+`;
+
+exports[`describe golden output > renders updateSubscription 1`] = `
+"PATCH /v1/subscriptions/{subscription}
+Updates an existing subscription to match the specified parameters.
+id: updateSubscription · tags: Subscriptions · auth: bearerAuth (http: bearer)
+
+path:
+  subscription: string required
+
+header:
+  X-Idempotency-Key: string — A unique key to guarantee the request is only performed once.
+
+body (application/json, required):
+  {
+    customer?: string
+    cancel_at_period_end?: boolean
+    proration_behavior?: "create_prorations" | "none" | "always_invoice"
+    items?: array of {
+      id?: string
+      price?: string
+      quantity?: number
+    }
+  }
+
+responses:
+  200 application/json
+    {
+      id: string
+      customer: string | { created: …; updated?: …; id: …; email: …; name?: …; balance?: …; metadata?: … }
+      status: "incomplete" | "trialing" | "active" | "past_due" | "canceled" | "unpaid"
+      items: …[]
+      cancel_at_period_end?: boolean
+      current_period_end?: number
+    }
+  others: 404"
+`;

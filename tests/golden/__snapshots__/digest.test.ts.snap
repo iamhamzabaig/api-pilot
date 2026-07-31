@@ -1,0 +1,203 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`digest golden corpus > renders binary-png 1`] = `
+"200 OK · image/png · 20 B · 42ms
+handle: r_goldenfixed01
+
+(binary body — not decoded; use inspect with a byte range)"
+`;
+
+exports[`digest golden corpus > renders deeply-nested 1`] = `
+"200 OK · application/json · 650 B · 42ms
+handle: r_goldenfixed01
+
+{ level: number; child: { level: number; child: { level: number; child: { level: number; child: { level: number; child: { level: number; child: { level: …; child: … } } } } } } }
+
+sample:
+{"level":1,"child":{"level":2,"child":{"level":3,"child":{"level":4,"child":{"level":5,"child":{"level":6,"child":{"level":"…","child":"…"}}}}}}}"
+`;
+
+exports[`digest golden corpus > renders empty-collections 1`] = `
+"200 OK · application/json · 36 B · 42ms
+handle: r_goldenfixed01
+
+{
+  items: unknown[0]
+  meta: {}
+  cursor: null
+}
+
+sample:
+{"items":[],"meta":{},"cursor":null}"
+`;
+
+exports[`digest golden corpus > renders heterogeneous-object-array 1`] = `
+"200 OK · application/json · 107 B · 42ms
+handle: r_goldenfixed01
+
+array[3] of {
+  id: number
+  name: string
+  extra?: string
+  nested?: { deep: number[3] }
+}
+
+sample [0]:
+{"id":1,"name":"a","extra":"only-here"}"
+`;
+
+exports[`digest golden corpus > renders html 1`] = `
+"200 OK · text/html · 80 B · 42ms
+handle: r_goldenfixed01
+
+<!doctype html><html><head><title>Hi</title></head><body><p>Hi</p></body></html>"
+`;
+
+exports[`digest golden corpus > renders invalid-utf8-labelled-json 1`] = `
+"200 OK · application/json · 10 B · 42ms
+handle: r_goldenfixed01
+
+(binary body — not decoded; use inspect with a byte range)"
+`;
+
+exports[`digest golden corpus > renders large-json-array 1`] = `
+"200 OK · application/json · 1.0 MB · 42ms
+handle: r_goldenfixed01
+etag: W/"abc123" · x-ratelimit-remaining: 4998
+
+array[7000] of {
+  id: number
+  name: string
+  email: string
+  active: boolean
+  tags: string[1..2]
+  meta: { created: string; score: number }
+}
+
+sample [0]:
+{"id":1,"name":"User 1","email":"user1@example.test","active":false,"tags":["alpha","… 1 more"],"meta":{"created":"2026-01-01T00:00:00Z","score":0}}"
+`;
+
+exports[`digest golden corpus > renders long-text 1`] = `
+"200 OK · text/plain · 17.1 KB · 42ms
+handle: r_goldenfixed01
+
+line 0: the quick brown fox jumps over it
+line 1: the quick brown fox jumps over it
+line 2: the quick brown fox jumps over it
+line 3: the quick brown fox jumps over it
+line 4: the quick brown fox jumps over it
+line 5: the quick brown fox jumps over it
+line 6: the quick brown fox jumps over it
+line 7: the quick brown fox jumps over it
+line 8: the quick brown fox jumps over it
+line 9: the quick brown fox jumps over it
+line 10: the quick brown fox jumps over it
+line 11: the quick brown fox jumps over it
+line 12: the quick brown fox jumps over it
+line 13: the quick brown fox jumps over it
+line 14: the quick brown fox jumps over it
+line 15: the quick brown fox jumps over it
+line 16: the quick bro
+… 16589 more characters …
+ brown fox jumps over it
+line 396: the quick brown fox jumps over it
+line 397: the quick brown fox jumps over it
+line 398: the quick brown fox jumps over it
+line 399: the quick brown fox jumps over it"
+`;
+
+exports[`digest golden corpus > renders mixed-type-array 1`] = `
+"200 OK · application/json · 35 B · 42ms
+handle: r_goldenfixed01
+
+(number | string | null | { three: number } | number[1] | boolean)[6]
+
+sample [0]:
+1"
+`;
+
+exports[`digest golden corpus > renders no-content 1`] = `
+"204 No Content · empty · 0 B · 42ms
+handle: r_goldenfixed01
+
+(empty body)"
+`;
+
+exports[`digest golden corpus > renders problem-json-error 1`] = `
+"403 Forbidden · application/problem+json · 200 B · 42ms
+handle: r_goldenfixed01
+
+{
+  type: string
+  title: string
+  status: number
+  detail: string
+  instance: string
+}
+
+sample:
+{"type":"https://example.test/probs/out-of-credit","title":"You do not have enough credit.","status":403,"detail":"Your current balance is 30, but that costs 50.","instance":"/account/12345/msgs/abc"}"
+`;
+
+exports[`digest golden corpus > renders small-json-object 1`] = `
+"200 OK · application/json · 53 B · 42ms
+handle: r_goldenfixed01
+
+{
+  id: number
+  name: string
+  price: number
+  inStock: boolean
+}
+
+sample:
+{"id":42,"name":"widget","price":9.99,"inStock":true}"
+`;
+
+exports[`digest golden corpus > renders truncated-with-redirects 1`] = `
+"200 OK · application/json · 33 B · 42ms · 3 attempts · BODY TRUNCATED
+handle: r_goldenfixed01
+via 2 redirect(s), final https://api.example.test/resource
+
+{ partial: boolean; values: number[3] }
+
+sample:
+{"partial":true,"values":[1,"… 2 more"]}"
+`;
+
+exports[`digest golden corpus > renders wide-object 1`] = `
+"200 OK · application/json · 821 B · 42ms
+handle: r_goldenfixed01
+
+{
+  field_0: number
+  field_1: number
+  field_2: number
+  field_3: number
+  field_4: number
+  field_5: number
+  field_6: number
+  field_7: number
+  field_8: number
+  field_9: number
+  field_10: number
+  field_11: number
+  field_12: number
+  field_13: number
+  field_14: number
+  field_15: number
+  field_16: number
+  field_17: number
+  field_18: number
+  field_19: number
+  field_20: number
+  field_21: number
+  field_22: number
+  field_23: number
+  +36 more
+}
+
+sample:
+{"field_0":0,"field_1":1,"field_2":2,"field_3":3,"field_4":4,"field_5":5,"field_6":6,"field_7":7,"field_8":8,"field_9":9,"field_10":10,"field_11":11,"field_12":12,"field_13":13,"field_14":14,"field_15":15,"field_16":16,"field_17":17,"field_18":18,"field_19":19,"field_20":20,"field_21":21,"field_22":22,"field_23":23,"…":"+36 more"}"
+`;

@@ -1,0 +1,68 @@
+openapi: 3.1.0
+info:
+  title: Self-referential schemas
+  version: "1"
+
+paths:
+  /comments/{id}:
+    get:
+      operationId: getCommentThread
+      summary: Retrieve a comment and its nested replies
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: The comment thread.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Comment" }
+
+  /trees:
+    post:
+      operationId: createTree
+      summary: Create a category tree
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/Node" }
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Node" }
+
+components:
+  schemas:
+    Comment:
+      type: object
+      required: [id, body]
+      properties:
+        id: { type: string }
+        body: { type: string }
+        # OpenAPI 3.1 spells nullable as a type union.
+        parent:
+          type: [string, "null"]
+        author: { $ref: "#/components/schemas/Author" }
+        replies:
+          type: array
+          items: { $ref: "#/components/schemas/Comment" }
+
+    Author:
+      type: object
+      properties:
+        id: { type: string }
+        # Mutual recursion: Author -> Comment -> Author.
+        latest_comment: { $ref: "#/components/schemas/Comment" }
+
+    Node:
+      type: object
+      properties:
+        name: { type: string }
+        children:
+          type: array
+          items: { $ref: "#/components/schemas/Node" }

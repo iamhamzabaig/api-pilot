@@ -1,0 +1,23 @@
+parameters:
+  OrderId:
+    name: order
+    in: path
+    required: true
+    description: The identifier of the order.
+    schema: { type: string }
+
+schemas:
+  Order:
+    type: object
+    required: [id, total]
+    properties:
+      id: { type: string }
+      total: { type: integer }
+      currency: { type: string, enum: [usd, eur, gbp] }
+      lines:
+        type: array
+        items:
+          type: object
+          properties:
+            sku: { type: string }
+            quantity: { type: integer }

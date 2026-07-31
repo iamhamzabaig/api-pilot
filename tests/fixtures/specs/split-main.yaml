@@ -1,0 +1,18 @@
+openapi: 3.0.3
+info:
+  title: A spec whose components live in a sibling file
+  version: "1"
+
+paths:
+  /orders/{order}:
+    get:
+      operationId: retrieveOrder
+      summary: Retrieve an order by its identifier
+      parameters:
+        - $ref: "./split-components.yaml#/parameters/OrderId"
+      responses:
+        "200":
+          description: The order.
+          content:
+            application/json:
+              schema: { $ref: "./split-components.yaml#/schemas/Order" }

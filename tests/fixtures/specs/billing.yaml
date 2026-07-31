@@ -1,0 +1,418 @@
+openapi: 3.0.3
+info:
+  title: Example Billing API
+  version: "2026-07-31"
+  description: A payments-style API, written with the wording real specs use.
+
+servers:
+  - url: https://api.billing.example.com
+
+security:
+  - bearerAuth: []
+
+paths:
+  /v1/customers:
+    get:
+      operationId: listCustomers
+      summary: Returns a list of your customers.
+      description: >
+        The customers are returned sorted by creation date, with the most
+        recently created customers appearing first.
+      tags: [Customers]
+      parameters:
+        - $ref: "#/components/parameters/Limit"
+        - name: email
+          in: query
+          description: A case-sensitive filter on the list based on the customer's email field.
+          schema: { type: string, format: email }
+      responses:
+        "200":
+          description: A paginated list of customers.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [object, data, has_more]
+                properties:
+                  object: { type: string, enum: [list] }
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/Customer" }
+                  has_more: { type: boolean }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+    post:
+      operationId: createCustomer
+      summary: Creates a new customer object.
+      tags: [Customers]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CustomerInput" }
+      responses:
+        "200":
+          description: The created customer.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Customer" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+
+  /v1/customers/{customer}:
+    parameters:
+      - name: customer
+        in: path
+        required: true
+        description: The identifier of the customer to be retrieved.
+        schema: { type: string }
+    get:
+      operationId: retrieveCustomer
+      summary: Retrieves a Customer object.
+      tags: [Customers]
+      responses:
+        "200":
+          description: The customer.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Customer" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    post:
+      operationId: updateCustomer
+      summary: Updates the specified customer by setting the values of the parameters passed.
+      tags: [Customers]
+      requestBody:
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CustomerInput" }
+      responses:
+        "200":
+          description: The updated customer.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Customer" }
+    delete:
+      operationId: deleteCustomer
+      summary: Permanently deletes a customer.
+      tags: [Customers]
+      responses:
+        "200":
+          description: The deleted customer.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Customer" }
+
+  /v1/subscriptions:
+    get:
+      operationId: listSubscriptions
+      summary: By default, returns a list of subscriptions that have not been canceled.
+      tags: [Subscriptions]
+      parameters:
+        - $ref: "#/components/parameters/Limit"
+        - name: status
+          in: query
+          schema: { $ref: "#/components/schemas/SubscriptionStatus" }
+      responses:
+        "200":
+          description: A paginated list of subscriptions.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Subscription" }
+    post:
+      operationId: createSubscription
+      summary: Creates a new subscription on an existing customer.
+      tags: [Subscriptions]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SubscriptionInput" }
+      responses:
+        "200":
+          description: The created subscription.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Subscription" }
+
+  /v1/subscriptions/{subscription}:
+    parameters:
+      - name: subscription
+        in: path
+        required: true
+        schema: { type: string }
+    get:
+      operationId: retrieveSubscription
+      summary: Retrieves the subscription with the given ID.
+      tags: [Subscriptions]
+      responses:
+        "200":
+          description: The subscription.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Subscription" }
+    patch:
+      operationId: updateSubscription
+      summary: Updates an existing subscription to match the specified parameters.
+      description: >
+        When changing prices or quantities, we optionally prorate the price we
+        charge next month to make up for any price changes.
+      tags: [Subscriptions]
+      parameters:
+        - name: X-Idempotency-Key
+          in: header
+          description: A unique key to guarantee the request is only performed once.
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SubscriptionInput" }
+      responses:
+        "200":
+          description: The updated subscription.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Subscription" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    delete:
+      operationId: cancelSubscription
+      summary: Cancels a customer's subscription immediately.
+      tags: [Subscriptions]
+      responses:
+        "200":
+          description: The canceled subscription.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Subscription" }
+
+  /v1/subscriptions/{subscription}/items:
+    parameters:
+      - name: subscription
+        in: path
+        required: true
+        schema: { type: string }
+    get:
+      operationId: listSubscriptionItems
+      summary: Returns a list of your subscription items for a given subscription.
+      tags: [Subscriptions]
+      responses:
+        "200":
+          description: The subscription items.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/SubscriptionItem" }
+
+  /v1/subscription_schedules:
+    get:
+      operationId: listSubscriptionSchedules
+      summary: Retrieves the list of your subscription schedules.
+      tags: [Subscriptions]
+      responses:
+        "200":
+          description: The subscription schedules.
+          content:
+            application/json:
+              schema: { type: array, items: { type: object } }
+
+  /v1/invoices:
+    get:
+      operationId: listInvoices
+      summary: You can list all invoices, or list the invoices for a specific customer.
+      tags: [Invoices]
+      responses:
+        "200":
+          description: The invoices.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Invoice" }
+    post:
+      operationId: createInvoice
+      summary: This endpoint creates a draft invoice for a given customer.
+      tags: [Invoices]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [customer]
+              properties:
+                customer: { type: string }
+                auto_advance: { type: boolean }
+                description: { type: string, nullable: true }
+      responses:
+        "200":
+          description: The draft invoice.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Invoice" }
+
+  /v1/invoices/{invoice}/pay:
+    post:
+      operationId: payInvoice
+      summary: Stripe automatically creates and then attempts to collect payment on invoices.
+      description: Attempt payment on a specific invoice out of the normal collection schedule.
+      tags: [Invoices]
+      parameters:
+        - name: invoice
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: The paid invoice.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Invoice" }
+
+  /v1/charges/{charge}/refund:
+    post:
+      operationId: refundCharge
+      summary: Refunds a charge that has previously been created but not yet refunded.
+      deprecated: true
+      tags: [Charges]
+      parameters:
+        - name: charge
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: The refunded charge.
+          content:
+            application/json:
+              schema: { type: object }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+
+  parameters:
+    Limit:
+      name: limit
+      in: query
+      description: A limit on the number of objects to be returned, between 1 and 100.
+      schema: { type: integer, minimum: 1, maximum: 100 }
+
+  responses:
+    Unauthorized:
+      description: No valid API key provided.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    BadRequest:
+      description: The request was unacceptable.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    NotFound:
+      description: The requested resource doesn't exist.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+
+  schemas:
+    Error:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            type: { type: string }
+            message: { type: string }
+            code: { type: string, nullable: true }
+
+    Timestamps:
+      type: object
+      required: [created]
+      properties:
+        created: { type: integer, format: int64 }
+        updated: { type: integer, format: int64, nullable: true }
+
+    Customer:
+      allOf:
+        - $ref: "#/components/schemas/Timestamps"
+        - type: object
+          required: [id, email]
+          properties:
+            id: { type: string }
+            email: { type: string, format: email }
+            name: { type: string, nullable: true }
+            balance: { type: integer }
+            metadata:
+              type: object
+              additionalProperties: { type: string }
+
+    CustomerInput:
+      type: object
+      properties:
+        email: { type: string, format: email }
+        name: { type: string }
+        metadata:
+          type: object
+          additionalProperties: { type: string }
+
+    SubscriptionStatus:
+      type: string
+      enum: [incomplete, trialing, active, past_due, canceled, unpaid]
+
+    SubscriptionItem:
+      type: object
+      required: [id, price]
+      properties:
+        id: { type: string }
+        price: { type: string }
+        quantity: { type: integer }
+
+    Subscription:
+      type: object
+      required: [id, customer, status, items]
+      properties:
+        id: { type: string }
+        customer:
+          oneOf:
+            - type: string
+            - $ref: "#/components/schemas/Customer"
+        status: { $ref: "#/components/schemas/SubscriptionStatus" }
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/SubscriptionItem" }
+        cancel_at_period_end: { type: boolean }
+        current_period_end: { type: integer, format: int64 }
+
+    SubscriptionInput:
+      type: object
+      properties:
+        customer: { type: string }
+        cancel_at_period_end: { type: boolean }
+        proration_behavior:
+          type: string
+          enum: [create_prorations, none, always_invoice]
+        items:
+          type: array
+          items:
+            type: object
+            properties:
+              id: { type: string }
+              price: { type: string }
+              quantity: { type: integer }
+
+    Invoice:
+      type: object
+      required: [id, customer, status]
+      properties:
+        id: { type: string }
+        customer: { type: string }
+        status:
+          type: string
+          enum: [draft, open, paid, uncollectible, void]
+        amount_due: { type: integer }
+        lines:
+          type: array
+          items: { $ref: "#/components/schemas/SubscriptionItem" }

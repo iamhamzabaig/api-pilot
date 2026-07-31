@@ -1,0 +1,60 @@
+openapi: 3.0.3
+info:
+  title: A spec with the damage real specs actually have
+  version: "1"
+
+paths:
+  # A path item that is a string instead of an object.
+  /broken: "this should have been an object"
+
+  /widgets:
+    get:
+      # No operationId at all — extremely common in hand-written specs.
+      summary: List widgets
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DoesNotExist" }
+    post:
+      operationId: duplicated
+      summary: Create a widget
+      responses:
+        "201": { description: created }
+
+  /gadgets:
+    get:
+      operationId: duplicated
+      summary: List gadgets
+      parameters:
+        # Missing "in".
+        - name: broken_parameter
+          schema: { type: string }
+        # Missing "name".
+        - in: query
+          schema: { type: string }
+        - $ref: "#/components/parameters/AlsoMissing"
+        - name: valid
+          in: query
+          schema: { type: string }
+      responses:
+        "200": { description: ok }
+
+  /escape-attempt:
+    get:
+      operationId: escapeAttempt
+      summary: References a file outside the spec directory
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "../../../../../../etc/passwd#/root" }
+
+components:
+  schemas:
+    Widget:
+      type: object
+      properties:
+        id: { type: string }
