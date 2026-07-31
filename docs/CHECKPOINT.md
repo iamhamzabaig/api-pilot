@@ -1,4 +1,4 @@
-# Checkpoint — 2026-07-31
+# Checkpoint — 2026-08-01
 
 Resume point for API Pilot. Read this first, then `docs/BLUEPRINT.md` §19–20 for the
 roadmap and `docs/adr/` for the decisions that are already locked.
@@ -7,8 +7,7 @@ roadmap and `docs/adr/` for the decisions that are already locked.
 
 ## 1. Where things stand
 
-**Milestones M0–M4 complete. M5–M7 remain.** That is roughly the first two-thirds
-of the ~6-week MVP.
+**Milestones M0–M5 complete. M6–M7 remain.**
 
 | | Milestone | State |
 |---|---|---|
@@ -17,21 +16,26 @@ of the ~6-week MVP.
 | M2 | Digest + Inspect — **the context-economy bet** | done, measured |
 | M3 | Environments, secrets, redaction, policy gate, auth | done, canary suite green |
 | M4 | Spec discovery — load, index, search, describe — **the search bet** | done, measured |
-| M5 | CLI | **next** |
-| M6 | MCP server (6 tools) | not started |
+| M5 | CLI — seven commands, `--json`, cold-start gate | done, measured |
+| M6 | MCP server (6 tools) | **next** |
 | M7 | v0.1 release | not started |
 
 ### Verification state at checkpoint
 
-All four gates green on Windows / Node 24.18:
+All gates green on Windows / Node 24.18:
 
 ```
-pnpm run check       biome ci .  →  50 files, 0 errors, 0 warnings
-pnpm run typecheck   tsc --noEmit → clean
-pnpm test            196 passed (17 files)
-pnpm run build       tsc -p tsconfig.build.json → dist/
+pnpm run check          biome ci .  →  61 files, 0 errors, 0 warnings
+pnpm run typecheck      tsc --noEmit → clean
+pnpm run build          tsc -p tsconfig.build.json → dist/
+pnpm run test:coverage  239 passed (19 files); 93.5% stmts, 88.0% branches
+pnpm run bench          cold start p95 63.9 ms (budget 200 ms)
+pnpm run docs:check     docs/cli.md up to date
 node dist/cli/index.js --version → 0.0.0
 ```
+
+Build runs **before** test in CI now: the cold-start bench and the docs
+staleness check both measure `dist/`, and would skip silently otherwise.
 
 ### Both product bets are measured, not asserted
 
@@ -40,29 +44,26 @@ node dist/cli/index.js --version → 0.0.0
 | A 1 MB JSON response fits a 2 KB digest | 1,051,814 B → **373 B** (0.035%) |
 | A 1,000-operation spec stays interactive | index **24 ms**, search **0.44 ms** |
 | A 1,000-operation spec adds zero MCP tools | 6 tools, unchanged |
+| The CLI starts fast enough to replace `curl` (N1) | p95 **63.9 ms**, budget 200 ms |
 
-If either had failed, ADR-0002 was wrong and one-tool-per-operation was the better
-design. Neither did. **Nothing structurally risky is left** — M5–M7 are assembly.
+If either bet had failed, ADR-0002 was wrong and one-tool-per-operation was the
+better design. Neither did. **Nothing structurally risky is left** — M6–M7 are
+assembly.
 
 ---
 
-## 2. IMPORTANT: nothing is committed
+## 2. Git state
 
-`git init` ran on branch `main`. There are **zero commits**. Every file is untracked.
+Two commits on `main`, no remote configured:
 
-First action next session, unless you want something else:
-
-```sh
-cd D:/Projects/api-pilot
-git status --short          # ~60 untracked paths
-git add -A
-git commit -m "feat: project foundations and core engine (M0-M4)"
+```
+440d3e5 feat(cli): M5 — seven commands over the engine
+461b93d feat: project foundations and core engine (M0-M4)
 ```
 
-Or commit per milestone from the module boundaries — the work is cleanly separable:
-M0 (config/docs/CI), M1 (`src/core/{errors,request,exec,store}`), M2
-(`src/core/{body,digest,inspect}`), M3 (`src/core/{workspace,secrets,redact,vars,policy,auth}`),
-M4 (`src/core/spec`).
+M0–M4 went in as one commit rather than five: `src/index.ts` re-exports every
+module, so per-milestone commits would not have typechecked, and history that
+does not build is not history.
 
 ---
 
@@ -106,7 +107,7 @@ Two open questions from BLUEPRINT §21 were **resolved by the user on 2026-07-31
   `confirm: true` argument. Implemented in `src/core/policy/policy.ts`.
 - **Q4 — history location:** gitignored `.apipilot/.cache/`. Not committed.
 
-Questions 1, 2, 5, 6, 7 in §21 are still open but none of them block M5–M7.
+Questions 1, 2, 5, 6, 7 in §21 are still open but none of them block M6–M7.
 
 ---
 
@@ -141,32 +142,60 @@ These have silent failure modes. Each has a test that is the real specification.
 6. **Golden snapshots are the spec of what a model sees.** `tests/golden/`.
    Never accept a diff with `-u` without reading it.
 
+7. **`--version` must import almost nothing.** `tests/unit/cli-structure.test.ts`
+   asserts `src/cli/index.ts` statically imports exactly `./output.js` and reaches
+   its commands through `await import(...)`. A static core import there would load
+   the HTTP stack, the spec index and the store on every invocation — and the p95
+   measurement would only notice after the budget was already gone.
+
+8. **Only http and https reach the network.** `assertProtocolAllowed`, applied to
+   the request and to every redirect hop.
+
 ---
 
-## 6. Next milestone: M5 — CLI
+## 6. Next milestone: M6 — MCP server
 
-From BLUEPRINT §20. Estimated ~1 week.
-
-**Scope:** a human-facing surface over the finished core. `search`, `describe`,
-`call`, `inspect`, `history`, `replay`, `env`. `--json` on every command.
+From BLUEPRINT §20. The six tools of ADR-0002: `api_search`, `api_describe`,
+`api_call`, `api_inspect`, `api_history`, `api_env`.
 
 **Acceptance criteria:**
-- All seven commands work.
-- `--json` on every command.
-- **Cold start < 200 ms p95 on all three OSes, gated in CI.** This is the one
-  remaining number that could bite — NFR N1.
-- Reference docs generated from source, with a CI staleness check.
+- All six tools, and **no seventh** without a new ADR naming what it displaces.
+- Golden-file token-budget test: the whole tool surface ≤ 1,500 tokens (NFR N3).
+- Egress-blocked CI job (NFR N7).
 
 **Notes for whoever picks this up:**
-- `src/cli/index.ts` is still the M0 stub using `node:util.parseArgs`. Keep it
-  that way. A CLI framework (oclif/yargs/commander) is a top cause of Node
-  startup cost and would put N1 out of reach — see ADR-0001 consequences.
-- Lazy-load anything not needed by `--version`. That path must import almost
-  nothing.
-- `history` is **not built yet** — `src/core/history/` does not exist. It is
-  listed under M1's module table in BLUEPRINT §11 but was not in M1's acceptance
-  criteria and was not built. M5 needs it, or `history`/`replay` must slip to M6.
-  This is the one real surprise waiting in M5. Decide early.
+- **The adapter should be thin.** `core/run` already does resolve → prepare →
+  execute → store → digest, and the CLI's `call`/`replay` are ~30 lines each on
+  top of it. `api_call` is the same call with a different argument shape. If the
+  MCP layer starts growing logic, that logic belongs in core where the CLI gets
+  it too.
+- `confirm: true` is already implemented and enforced (`policy.ts`); the host
+  approval UI is the other half of Q3 and is the adapter's job.
+- Read `src/cli/commands/*.ts` before writing the tool handlers — the argument
+  validation, the `--json` payload shapes, and the error `code`/`message`/`hint`
+  rendering are all directly reusable as tool result shapes.
+
+### What M5 decided that M6 inherits
+
+- **There is no `src/core/history/`,** despite BLUEPRINT §11 listing one. A run
+  *is* a metadata record, so the run log is `ResponseStore.list()`. Handles are
+  time-prefixed base36, so a limited query reads only the records it returns
+  rather than scanning the store.
+- **`core/run/run.ts` is new** and is the single end-to-end request path.
+  `api_call` must use it rather than re-assembling the sequence.
+- **Replay stores the pre-interpolation intent**, not the resolved request, so
+  replaying into another environment resolves that environment's variables and
+  credentials. The intent lives inside the metadata record, which puts it inside
+  the redaction boundary for free. A binary body is dropped, flagged
+  `bodyOmitted`, and replay refuses with a clear error.
+- **Spec paths live in `.apipilot/environments.yaml` under `specs:`**, not in the
+  separate `config.yaml` BLUEPRINT §17 describes. One array did not justify a
+  second file, a second schema and a second loader. Revisit if that file grows
+  anything else.
+- **The policy gate now checks protocol** — http/https only, on the request and
+  on every redirect hop. It previously checked only the host, so `file:`,
+  `data:`, and a Windows `C:\...` path (scheme `c:`, empty hostname) reached the
+  host check and were reported as the baffling `Host  is not allowed`.
 
 ---
 
@@ -178,14 +207,15 @@ becomes "done".
 | Gap | Where it belongs |
 |---|---|
 | **No real-world spec validation.** M4's criterion "loads 5 real-world public specs" is **not met** — CI cannot touch the network and Stripe's spec is 6 MB. Five synthetic fixtures encode real failure modes instead; the ≥500-op case is generated. Closable with no code change: drop a downloaded spec into `tests/fixtures/specs/` (it is globbed; `local-*.yaml` is gitignored). See that directory's README. **Worth doing manually before v0.1 — expect it to find parser gaps.** | before M7 |
-| **Loading a spec by URL.** BLUEPRINT §6.1 tags it MVP. Fetching makes loading an egress event and needs the policy gate wired in. | M5 or M6 |
-| **`src/core/history/`** — run log, replay. See §6 above. | M5 |
-| Coverage gate (`vitest --coverage`, ≥85% on `src/core`) | M5 |
-| Cold-start benchmark in CI, failing on >15% regression | M5 |
+| **Loading a spec by URL.** BLUEPRINT §6.1 tags it MVP. Fetching makes loading an egress event and needs the policy gate wired in. | M6 |
+| **Cold start is gated on an absolute 200 ms p95, not on a >15% regression.** A regression gate needs a committed baseline per OS, and a baseline that drifts upward one accepted commit at a time is worse than no baseline. The bench prints p50/p95 on every run so a creep from 60 ms to 190 ms is visible while still passing. | M7, if the absolute gate proves too loose |
+| **`--body` takes text only.** No `@file` shorthand, no streaming upload, no multipart. `--body-file` covers the common case; a binary body is not replayable (see §6). | when a real use case lands |
 | Egress-blocked CI job (NFR N7) | M6 |
 | CodeQL, Dependabot/Renovate, Changesets, issue/PR templates | M7 |
 | `.apipilot/` example workspace under `examples/`, executed in CI | M7 |
-| Docs generated from source + staleness check | M5 |
+
+Closed in M5: the run log, the coverage gate (85% on `src/core`), the
+cold-start benchmark, and docs generated from source with a staleness check.
 
 ---
 
@@ -195,7 +225,15 @@ becomes "done".
 src/
 ├─ index.ts                     public API surface — changes here need a changeset
 ├─ version.ts                   resolves package.json version (dist/ and src/ same depth)
-├─ cli/index.ts                 M0 STUB — --version and --help only
+├─ cli/
+│  ├─ index.ts                 dispatch ONLY; every command behind a dynamic import
+│  ├─ output.ts                printing; imports no core, it is on the --version path
+│  ├─ args.ts                  shared argument coercion
+│  └─ commands/                grouped by dependency footprint, not one file per verb:
+│     ├─ spec.ts               search + describe   (loads the spec index, not the executor)
+│     ├─ run.ts                call + replay       (loads core/run)
+│     ├─ store.ts              history + inspect   (loads the store)
+│     └─ env.ts                env                 (loads the workspace only)
 └─ core/
    ├─ errors.ts                 ApiPilotError, one class + stable `code` discriminant
    ├─ body.ts                   decodeBody / formatBytes / capBytes (the byte-budget backstop)
@@ -211,6 +249,7 @@ src/
    ├─ vars/interpolate.ts       {{var}}; depth-first, never rescans substituted text
    ├─ auth/apply.ts             bearer / basic / apikey, all registered with the redactor
    ├─ policy/policy.ts          host allowlist + production mutation gate + redirect guard
+   ├─ run/run.ts                runRequest + replayRun — THE end-to-end request path
    ├─ workspace/{schema,workspace}.ts   .apipilot/ discovery, YAML + Zod, local overrides
    └─ spec/
       ├─ document.ts            load + LAZY $ref, directory-escape guard
@@ -236,6 +275,15 @@ src/
   (M4). Array lengths are optional because schema-derived shapes have none.
 - **`describe` degrades the response schema before the request body** — the body
   is what you need to construct the call; the response you will see anyway.
+- **CLI commands are grouped by what they import,** not one file per verb. Lazy
+  loading is the mechanism that keeps N1, and it only pays off if the module a
+  command pulls in is the module it actually needs.
+- **`--spec` replaces the workspace's spec list rather than adding to it.** The
+  flag exists to look at a spec the workspace does not know about; silently
+  searching four others at the same time would be a surprise.
+- **`env` with no argument does not resolve secrets.** Listing must keep working
+  when `PROD_TOKEN` is missing from the shell, or one unset variable hides every
+  environment from you. Only `env <name>` resolves.
 
 ---
 
@@ -257,6 +305,16 @@ src/
   `/subscriptions/{id}/items` beat `/subscriptions`; "all" scored as content
   instead of cardinality intent; `stem("modify")` never matched the intent map key
   `"modifi"`.
+- The policy gate never checked protocol, so a `file:` or `data:` URL — or a
+  Windows `C:\...` path, which parses as scheme `c:` with an empty hostname —
+  fell through to the host check and surfaced as `Host  is not allowed`.
+- `inspect` read the store before validating its flags, so a mistyped `--range`
+  reported whatever the disk said about the handle instead of the typo.
+- The cold-start benchmark measured the machine, not the tool: run alongside the
+  main suite's workers it read ~295 ms against a 200 ms budget, and ~62 ms alone.
+  It now runs under its own config. Its first version also took 15 samples, where
+  the nearest-rank p95 index lands on the *maximum* — asserting "no spawn ever
+  exceeded 200 ms" rather than NFR N1's actual claim.
 
 ---
 
@@ -265,13 +323,21 @@ src/
 ```sh
 pnpm install
 pnpm test                    # vitest run
+pnpm run test:coverage       # with the 85% gate on src/core
 pnpm test:watch
 pnpm run check               # biome ci  — no warnings-only mode
 pnpm run format              # biome check --write
 pnpm run typecheck
 pnpm run build
+pnpm run bench               # cold start, own config — needs a build first
+pnpm run docs                # regenerate docs/cli.md; docs:check to verify
 
 pnpm exec vitest run -u                  # update goldens — READ THE DIFF
 pnpm exec vitest run spec-search         # the search-bet suite
 pnpm exec vitest run canary              # the secret-leakage suite
+pnpm exec vitest run cli                 # the CLI integration suite
 ```
+
+`bench` and `docs:check` both read `dist/`. Build first or they measure
+nothing — `bench` skips silently when `dist/` is absent, which is why CI
+builds before it tests.
