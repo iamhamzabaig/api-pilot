@@ -1,7 +1,7 @@
 import { mkdtemp, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiPilotError } from "../../src/core/errors.js";
 import type { HttpResponse } from "../../src/core/exec/execute.js";
 import { ResponseStore } from "../../src/core/store/response-store.js";
@@ -170,6 +170,25 @@ describe("ResponseStore.list", () => {
 
     const handles = (await store.list()).map((m) => m.handle);
     expect(handles).toEqual([third.handle, second.handle, first.handle]);
+  });
+
+  // The ordering the test above asserts is only *usually* true if the handle's
+  // timestamp is the sole ordering key: runs inside one millisecond share a
+  // prefix and the random tail breaks the tie at random. Pinning the clock makes
+  // every run land in the same millisecond, so this fails every time, not one
+  // run in a hundred.
+  it("returns runs newest first when they share a millisecond", async () => {
+    const now = Date.now();
+    const clock = vi.spyOn(Date, "now").mockReturnValue(now);
+    try {
+      const handles: string[] = [];
+      for (let i = 0; i < 8; i++)
+        handles.push((await store.put(response(`s${i}`), summary)).handle);
+
+      expect((await store.list()).map((m) => m.handle)).toEqual([...handles].reverse());
+    } finally {
+      clock.mockRestore();
+    }
   });
 
   it("honours the limit", async () => {

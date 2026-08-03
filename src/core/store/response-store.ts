@@ -298,9 +298,28 @@ function toStoredIntent(intent: RequestIntent): StoredRequestIntent {
   return { ...rest, bodyOmitted: true };
 }
 
-/** Time-prefixed so a lexical sort is a chronological sort. */
+/**
+ * The last stamp handed out, so a burst inside one millisecond still sorts in
+ * issue order. `Date.now()` alone is not enough: two runs in the same
+ * millisecond share a prefix, and the random tail then orders them at random —
+ * which `list()` reports as history out of order.
+ */
+let lastStamp = 0;
+
+/**
+ * Time-prefixed so a lexical sort is a chronological sort. Base36 keeps the
+ * stamp eight characters wide until the year 5138, and equal width is what makes
+ * the lexical sort chronological.
+ *
+ * ponytail: the counter is per-process, so two processes writing to one store in
+ * the same millisecond still tie and fall back to the random tail. Those runs are
+ * concurrent, and ordering them would need a real clock in the record rather than
+ * in the name.
+ */
 function newHandle(): string {
-  return `r_${Date.now().toString(36)}${randomBytes(4).toString("hex").slice(0, 5)}`;
+  const now = Date.now();
+  lastStamp = now > lastStamp ? now : lastStamp + 1;
+  return `r_${lastStamp.toString(36)}${randomBytes(4).toString("hex").slice(0, 5)}`;
 }
 
 function hasCode(error: unknown, code: string): boolean {
