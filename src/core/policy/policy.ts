@@ -77,11 +77,14 @@ function assertMutationConfirmed(
   if (READ_ONLY_METHODS.has(method.toUpperCase())) return;
   if (context.confirmed) return;
 
+  // The hint names an action only a person at a terminal can take. It used to
+  // say "re-issue the same call with confirm: true", which read to a model as
+  // instructions for getting past the gate rather than a reason to stop.
   throw new ApiPilotError(
     "CONFIRMATION_REQUIRED",
     `${method.toUpperCase()} against environment "${environment.name}" is classified production`,
     {
-      hint: "Re-issue the same call with confirm: true once a human has seen it.",
+      hint: `A person must run this: api-pilot run ${method.toUpperCase()} <url> --env ${environment.name} --confirm`,
     },
   );
 }

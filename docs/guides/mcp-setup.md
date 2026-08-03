@@ -220,10 +220,24 @@ the fence itself has its tags escaped.
 
 - **Host allowlist.** A request to a host the environment does not list is refused
   with `POLICY_BLOCKED`. Only `http` and `https` ever reach the network.
-- **Production mutations need `confirm: true`.** A `POST`/`PUT`/`PATCH`/`DELETE`
-  against an environment classified `production` fails with `CONFIRMATION_REQUIRED`
-  until the model passes the argument — which the host shows you in the approval
-  dialog. The gate survives hosts that auto-approve tool calls.
+- **Production mutations are refused outright over MCP.** A
+  `POST`/`PUT`/`PATCH`/`DELETE` against an environment classified `production`
+  fails with `CONFIRMATION_REQUIRED`, and there is no argument that changes that.
+
+  This gate used to accept `confirm: true` from the caller, on the theory that
+  the host would show you the argument before running the tool. Testing against a
+  real host killed that: asked to delete a widget in prod, and never told to
+  confirm anything, the model set the flag itself on its first attempt. A model
+  confirming on your behalf is not confirmation, and against a host that
+  auto-approves tool calls it left nothing in the way.
+
+  An MCP server cannot authenticate the human on the far side of the protocol, so
+  it no longer pretends to. Production writes go through the CLI, where
+  `--confirm` is typed by a person:
+
+  ```sh
+  api-pilot run DELETE /widgets/wgt_1 --env prod --confirm
+  ```
 - **Secrets never leave the process.** `api_env` returns variable *names*; a
   secret-backed value reads as `[redacted]`.
 

@@ -21,7 +21,7 @@ Please include: affected version, reproduction steps, and impact. We aim to ackn
 *Mitigation:* response bodies are fenced as untrusted data in tool results; URLs found in response bodies are never followed or executed automatically; redirects are constrained by the host allowlist; digest-by-default reduces the injected payload that reaches the model at all.
 
 **T3 — Destructive action by an agent.** A misread spec becomes a `DELETE` against production.
-*Mitigation:* environments are classified `safe` / `caution` / `production`. Mutating methods against a `production` environment require explicit confirmation. We deliberately did not make every request a dry run by default, because that trains users to approve blindly.
+*Mitigation:* environments are classified `safe` / `caution` / `production`. Mutating methods against a `production` environment require confirmation **from a person at a terminal** — `--confirm` on the CLI. Over MCP they are refused unconditionally, with no argument that opens the gate. Until 0.2.0 the MCP tools accepted a `confirm: true` argument; a model supplied it unprompted on its first attempt at a production `DELETE`, which is the model confirming on the user's behalf, and against an auto-approving host it left no gate at all. We deliberately did not make every request a dry run by default, because that trains users to approve blindly.
 
 **T4 — Unintended egress.** An agent calling a host you did not intend.
 *Mitigation:* a per-environment host allowlist; requests to hosts not on it are refused. No telemetry — API Pilot makes no outbound request other than to your target and to spec URLs you explicitly configure. This is verified by a CI job that runs the full suite with egress blocked.
@@ -31,6 +31,7 @@ Please include: affected version, reproduction steps, and impact. We aim to ackn
 Stating these plainly is more useful than implying coverage we do not have:
 
 - **A model that is socially engineered into calling an allowlisted, non-production, destructive endpoint.** The confirmation gate covers production; it does not read intent. Classify your environments accurately.
+- **Anything that depends on an MCP host faithfully showing you a tool call before running it.** We make no assumption about host behaviour, which is why the production gate is not openable over MCP at all rather than gated on an argument you were expected to see. A host that hides or auto-approves tool calls is outside what we can control.
 - **A compromised host machine.** If an attacker can read your environment variables or your keychain, they have your credentials regardless of what we do.
 - **A malicious or backdoored MCP client.** We trust the client we speak to.
 - **Server-side authorization flaws.** API Pilot will faithfully make the request you have credentials to make. It is not a permissions layer.

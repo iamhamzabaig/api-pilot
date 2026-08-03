@@ -45,10 +45,6 @@ const Call = z.object({
   body: z.string().optional(),
   contentType: z.string().optional(),
   environment: z.string().optional().describe("Defaults to the workspace default"),
-  confirm: z
-    .boolean()
-    .optional()
-    .describe("Required for a mutating call against a production environment"),
   maxBytes: z.int().min(128).max(16384).optional().describe("Digest budget (default 2048)"),
 });
 
@@ -68,7 +64,6 @@ const History = z.object({
   status: z.int().optional(),
   urlContains: z.string().optional(),
   environment: z.string().optional().describe("replay: run against this environment instead"),
-  confirm: z.boolean().optional().describe("replay: as api_call"),
 });
 
 const Env = z.object({
@@ -292,14 +287,22 @@ function renderRun(result: RunResult): ToolResult {
   };
 }
 
-function runOptions(input: {
-  environment?: string | undefined;
-  confirm?: boolean | undefined;
-  maxBytes?: number | undefined;
-}) {
+function runOptions(input: { environment?: string | undefined; maxBytes?: number | undefined }) {
   return {
     ...(input.environment === undefined ? {} : { environment: input.environment }),
-    confirmed: input.confirm === true,
+    // Never confirmed over MCP, and not a parameter the caller can set.
+    //
+    // The gate exists so a human sees a production mutation before it happens. A
+    // model supplying `confirm: true` is the model confirming on the human's
+    // behalf, which is not confirmation at all — and against a host that
+    // auto-approves tool calls it left nothing in the way. That is not
+    // hypothetical: asked to delete a widget in prod, and never told to confirm,
+    // a real host's model set the flag itself on its first attempt.
+    //
+    // An MCP server cannot authenticate a human on the other side of the
+    // protocol, so it does not pretend to. Production writes go through the CLI,
+    // where `--confirm` is typed by a person.
+    confirmed: false,
     ...(input.maxBytes === undefined ? {} : { digestMaxBytes: input.maxBytes }),
   };
 }

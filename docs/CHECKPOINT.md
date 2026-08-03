@@ -174,8 +174,20 @@ without reading the reasoning first:
 
 Two open questions from BLUEPRINT §21 were **resolved by the user on 2026-07-31**:
 
-- **Q3 — production mutation confirmation:** host approval UI **plus** a required
-  `confirm: true` argument. Implemented in `src/core/policy/policy.ts`.
+- **Q3 — production mutation confirmation:** ~~host approval UI **plus** a required
+  `confirm: true` argument~~. **Revised 2026-08-03, and the revision is the
+  interesting part.** The original answer assumed the host would show a human the
+  `confirm: true` argument before running the call. The first test against a real
+  host disproved it: Codex, asked to delete a widget in `prod` and never told to
+  confirm, supplied `confirm: true` itself on its first attempt. Only an unset
+  `WIDGET_PROD_TOKEN` stopped the request — luck, not a control.
+
+  A model confirming on the human's behalf is not confirmation, and an MCP server
+  cannot authenticate the human on the other side of the protocol. So the
+  argument is gone from the tool surface entirely and the MCP adapter passes
+  `confirmed: false` unconditionally (`src/mcp/tools.ts`); production writes are a
+  CLI action, where `--confirm` is typed by a person. The gate itself still lives
+  in `src/core/policy/policy.ts`.
 - **Q4 — history location:** gitignored `.apipilot/.cache/`. Not committed.
 
 Questions 1, 2, 5, 6, 7 in §21 are still open but none of them block M6–M7.
@@ -503,7 +515,7 @@ builds before it tests.
 | Published to npm with provenance | **half.** Published — `@hamzu/api-pilot@0.1.0`. No provenance: the first publish had to be manual, and attestation needs the workflow's OIDC identity. 0.1.1 onward gets it |
 | `npx @hamzu/api-pilot` works clean on all three OSes | **verified locally on Windows only** — pack, global install, `--version`, `tools/list`. The three-OS smoke job runs on the next tag |
 | 3 external testers complete the §19 success test | **not started** |
-| *(from M6)* verified working in Claude Code and one other host | **not done** |
+| *(from M6)* verified working in Claude Code and one other host | **half — Codex done, and it earned its keep.** The published package ran end to end there: 6 tools, `api_env` through `api_history`, no secret in any frame. It also found the confirmation-gate defect above, and a missing `env` block in every host example in the setup guide. Claude Code itself still unverified |
 
 ### What M7 decided
 

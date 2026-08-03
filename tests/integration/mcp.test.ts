@@ -19,6 +19,11 @@ import { type FixtureServer, startFixtureServer } from "./fixture-server.js";
  * untrusted fence, the confirmation gate, and that no secret comes back out.
  */
 
+interface ToolShape {
+  readonly name: string;
+  readonly inputSchema: { properties?: Record<string, unknown> };
+}
+
 interface Response {
   readonly id: number | null;
   readonly result?: { content?: { text: string }[]; isError?: boolean } & Record<string, unknown>;
@@ -290,7 +295,12 @@ describe("api_call", () => {
     expect(payload<{ error: { code: string } }>(response).error.code).toBe("CONFIRMATION_REQUIRED");
   });
 
-  it("allows the same call once confirm is set", async () => {
+  // The gate used to accept `confirm: true` from the model, which is the model
+  // confirming on the human's behalf — and a host that auto-approves tool calls
+  // made it no gate at all. A real host found this: asked to delete a widget in
+  // prod, and never told to confirm, the model supplied `confirm: true` on its
+  // own first attempt.
+  it("still refuses when the caller supplies confirm itself", async () => {
     const response = await client.call("api_call", {
       method: "POST",
       url: "/echo",
@@ -298,8 +308,28 @@ describe("api_call", () => {
       confirm: true,
     });
 
-    expect(response.result?.isError).toBeUndefined();
-    expect(payload<{ status: number }>(response).status).toBe(200);
+    expect(response.result?.isError).toBe(true);
+    expect(payload<{ error: { code: string } }>(response).error.code).toBe("CONFIRMATION_REQUIRED");
+  });
+
+  it("refuses a production replay the same way", async () => {
+    const response = await client.call("api_history", {
+      action: "replay",
+      handle: "r_nonexistent1",
+      environment: "prod",
+      confirm: true,
+    });
+
+    expect(response.result?.isError).toBe(true);
+  });
+
+  it("does not advertise a confirm argument the caller could set", async () => {
+    const response = await client.request("tools/list");
+    const tools = (response.result as { tools: ToolShape[] }).tools;
+
+    for (const tool of tools) {
+      expect(Object.keys(tool.inputSchema.properties ?? {})).not.toContain("confirm");
+    }
   });
 
   it("refuses a host outside the environment's allowlist", async () => {

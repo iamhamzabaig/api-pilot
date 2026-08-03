@@ -364,8 +364,9 @@ This is the safety dial, and nothing can guess it for you.
 - **`safe`** (the default) — anything goes. Right for localhost.
 - **`caution`** — same as safe today; reserved for stricter future defaults.
 - **`production`** — **any `POST`, `PUT`, `PATCH` or `DELETE` is refused** unless
-  you explicitly add `--confirm` (or the assistant passes `confirm: true`, which
-  your host shows you first).
+  *you* add `--confirm` at the CLI. There is no way for an assistant to confirm
+  on your behalf: over MCP the gate cannot be opened at all, so a production
+  write is something you run yourself.
 
 Mark real environments `production`. It is the difference between an assistant
 misreading a spec and an assistant deleting your data.
@@ -482,7 +483,8 @@ or check for a typo in `baseUrl`.
 No `baseUrl` and no `allowedHosts`. Set at least one.
 
 **`CONFIRMATION_REQUIRED: POST against environment "prod" is classified production`**
-Working as designed. Add `--confirm` if you meant it.
+Working as designed. Add `--confirm` if you meant it. If you hit this through an
+assistant, there is no argument it can pass — run the call yourself.
 
 **`No operation with id "GetCustomers"`**
 Operation ids come from your spec, and many specs do not declare them — in that

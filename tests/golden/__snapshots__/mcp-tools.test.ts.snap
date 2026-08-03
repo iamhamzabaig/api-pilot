@@ -53,10 +53,6 @@ exports[`the MCP tool surface > matches its golden serialization 1`] = `
         "body": {
           "type": "string",
         },
-        "confirm": {
-          "description": "Required for a mutating call against a production environment",
-          "type": "boolean",
-        },
         "contentType": {
           "type": "string",
         },
@@ -141,10 +137,6 @@ exports[`the MCP tool surface > matches its golden serialization 1`] = `
             "replay",
           ],
           "type": "string",
-        },
-        "confirm": {
-          "description": "replay: as api_call",
-          "type": "boolean",
         },
         "environment": {
           "description": "replay: run against this environment instead",
