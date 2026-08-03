@@ -75,6 +75,17 @@ swap the command for the built entry point:
 { "command": "node", "args": ["/absolute/path/to/api-pilot/dist/cli/index.js", "mcp"] }
 ```
 
+**Every example below carries an `env` block, and it is not decoration.** A server
+started by a host inherits *that host's* environment, not your shell's — a desktop
+app launched from the dock has never seen your `.zshrc`. So a workspace whose
+`environments.yaml` says `${env:MY_API_TOKEN}` resolves it against whatever the host
+passed down, and a config without an `env` block fails at the first call with
+`SECRET_UNRESOLVED`. Claude Code is the exception, and only when you started it from
+a terminal that already had the variable.
+
+If you would rather not put the value in a config file, `${file:/path/to/secret}`
+reads it at call time instead and needs no environment at all.
+
 ### Claude Code
 
 Project-scoped, checked into the repo as `.mcp.json`:
@@ -84,17 +95,19 @@ Project-scoped, checked into the repo as `.mcp.json`:
   "mcpServers": {
     "api-pilot": {
       "command": "npx",
-      "args": ["-y", "@hamzu/api-pilot", "mcp"]
+      "args": ["-y", "@hamzu/api-pilot", "mcp"],
+      "env": { "MY_API_TOKEN": "..." }
     }
   }
 }
 ```
 
-No `--dir` needed here: Claude Code starts servers in the project directory. Or add
-it from the command line:
+No `--dir` needed here: Claude Code starts servers in the project directory. Drop the
+`env` block if you launch Claude Code from a shell that already exports the variable
+— this is the one host where that works. Or add it from the command line:
 
 ```sh
-claude mcp add api-pilot -- npx -y @hamzu/api-pilot mcp
+claude mcp add api-pilot -e MY_API_TOKEN=... -- npx -y @hamzu/api-pilot mcp
 ```
 
 Check it with `/mcp` inside a session.
@@ -109,14 +122,17 @@ Check it with `/mcp` inside a session.
   "mcpServers": {
     "api-pilot": {
       "command": "npx",
-      "args": ["-y", "@hamzu/api-pilot", "mcp", "--dir", "/absolute/path/to/your-project"]
+      "args": ["-y", "@hamzu/api-pilot", "mcp", "--dir", "/absolute/path/to/your-project"],
+      "env": { "MY_API_TOKEN": "..." }
     }
   }
 }
 ```
 
-`--dir` is required: the desktop app has no project directory to inherit. Restart
-the app after editing; the tools appear under the connectors icon.
+`--dir` is required: the desktop app has no project directory to inherit, and for the
+same reason it has no shell environment either — the `env` block is not optional
+here. Restart the app fully after editing (quit from the tray or menu bar, not just
+the window); the tools appear under the connectors icon.
 
 ### Cursor
 
@@ -127,7 +143,8 @@ the app after editing; the tools appear under the connectors icon.
   "mcpServers": {
     "api-pilot": {
       "command": "npx",
-      "args": ["-y", "@hamzu/api-pilot", "mcp", "--dir", "/absolute/path/to/your-project"]
+      "args": ["-y", "@hamzu/api-pilot", "mcp", "--dir", "/absolute/path/to/your-project"],
+      "env": { "MY_API_TOKEN": "..." }
     }
   }
 }
@@ -146,11 +163,35 @@ Then Settings → MCP, and confirm `api-pilot` is listed with six tools.
       "source": "custom",
       "command": "npx",
       "args": ["-y", "@hamzu/api-pilot", "mcp", "--dir", "/absolute/path/to/your-project"],
-      "env": {}
+      "env": { "MY_API_TOKEN": "..." }
     }
   }
 }
 ```
+
+### Codex CLI
+
+Codex keeps servers in `~/.codex/config.toml`, and writes them for you:
+
+```sh
+codex mcp add api-pilot \
+  --env MY_API_TOKEN=... \
+  -- npx -y @hamzu/api-pilot mcp --dir /absolute/path/to/your-project
+```
+
+which produces — note that `env` is its own table, not an inline key:
+
+```toml
+[mcp_servers.api-pilot]
+command = "npx"
+args = ["-y", "@hamzu/api-pilot", "mcp", "--dir", "/absolute/path/to/your-project"]
+
+[mcp_servers.api-pilot.env]
+MY_API_TOKEN = "..."
+```
+
+`codex mcp get api-pilot` shows the resolved config with the environment masked, and
+`codex mcp remove api-pilot` undoes it.
 
 ---
 
@@ -213,9 +254,17 @@ absolute path.
 resolve relative to the workspace root. `api_call` works without any spec.
 
 **`SECRET_UNRESOLVED`.**
-The server inherits the environment of the process that started it, which for a
-desktop app is not your shell. Set the variable in the host's own `env` block, or
-use a `${file:...}` reference instead.
+The single most common first failure. The server inherits the environment of the
+process that started it, which for a desktop app is not your shell. Set the variable
+in the host's own `env` block — every example in §3 has one — or use a `${file:...}`
+reference, which needs no environment at all.
+
+**`api_call` fails with `method: Invalid input: expected string, received undefined`.**
+Something called `api_call` with an `operationId`. It does not take one: it takes
+`method` and `url`, and `api_describe` is what turns an id from `api_search` into
+that pair. This is the intended `search → describe → call` sequence asserting
+itself, not a bug — but if you see a model do it repeatedly, that is worth reporting,
+because the error says nothing about the step that was skipped.
 
 **Verify by hand.** The server is a normal process on two pipes:
 

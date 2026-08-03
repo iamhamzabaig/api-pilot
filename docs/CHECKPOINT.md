@@ -251,7 +251,7 @@ These have silent failure modes. Each has a test that is the real specification.
 | Protocol conformance suite green | 26 cases, `tests/integration/mcp.test.ts` |
 | Response bodies fenced as untrusted | `fence()`, both tags escaped |
 | A 500-operation spec adds zero tools | asserted at 1,000 operations |
-| Setup guides for 4 hosts | `docs/guides/mcp-setup.md` |
+| Setup guides for 4 hosts | `docs/guides/mcp-setup.md` — five now, Codex added while verifying against a real host |
 | **Verified working in Claude Code and one other host** | **not done — needs a human at a host** |
 
 That last one cannot be closed from a test run. It is the first thing to do in M7,

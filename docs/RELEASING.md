@@ -121,8 +121,19 @@ Three things gate the first release and none of them can be closed by a test run
 
 - [ ] **Verified working in Claude Code and one other host.** This is the M6
       acceptance criterion still open. `docs/guides/mcp-setup.md` has the
-      configuration for four hosts; the fixture only a real host produces is an
+      configuration for five hosts; the fixture only a real host produces is an
       odd `initialize` payload or a working directory you did not expect.
+
+      The published package has been driven end to end over stdio —
+      `initialize`, `tools/list`, `api_env`, `api_search`, `api_call` against a
+      live server, `api_history`, no secret in any frame — but by a script, not
+      by a host. That proves the transport and leaves the criterion open: what
+      is unverified is what a host does *around* the protocol.
+
+      It has already paid for itself once. Registering the server with Codex
+      exposed that every host example here omitted the `env` block, so any
+      workspace using a `${env:...}` reference failed on its first call for
+      anyone following the guide.
 - [ ] **Three external testers complete the §19 success test.** BLUEPRINT §19
       defines it. Their transcripts are the only evidence that the tool works for
       someone who did not build it.
