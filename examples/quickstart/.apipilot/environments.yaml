@@ -1,0 +1,34 @@
+version: 1
+
+# Paths are relative to the workspace root — the directory holding .apipilot/ —
+# not to this file. A spec may also be an http(s) URL, which is fetched once and
+# cached under .apipilot/.cache/specs/ for a day.
+specs:
+  - ./openapi.yaml
+
+default: local
+
+environments:
+  local:
+    # `classification` defaults to `safe`, which is what a localhost service is.
+    baseUrl: http://127.0.0.1:8787
+    variables:
+      # A reference, never a literal. The value is resolved at the HTTP boundary
+      # and is scrubbed from every output stream — see SECURITY.md T1.
+      apiToken: ${env:WIDGET_TOKEN}
+    auth:
+      type: bearer
+      token: "{{apiToken}}"
+
+  # Nothing in this example calls it, but this is the shape that matters: a
+  # mutating request against a `production` environment is refused until you pass
+  # --confirm, so an agent cannot DELETE its way through your real data.
+  prod:
+    classification: production
+    baseUrl: https://widgets.example.com
+    allowedHosts: ["widgets.example.com"]
+    variables:
+      apiToken: ${env:WIDGET_PROD_TOKEN}
+    auth:
+      type: bearer
+      token: "{{apiToken}}"

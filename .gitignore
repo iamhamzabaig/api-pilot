@@ -4,9 +4,10 @@ coverage/
 *.tsbuildinfo
 *.log
 
-# API Pilot workspace caches (responses, history, spec cache)
-.apipilot/.cache/
-.apipilot/environments.local.yaml
+# API Pilot workspace caches (responses, history, spec cache) — at any depth,
+# so the workspace under examples/ is covered too.
+**/.apipilot/.cache/
+**/.apipilot/environments.local.yaml
 
 # Scratch specs downloaded for a local check against something real.
 tests/fixtures/specs/local-*.yaml

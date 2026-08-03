@@ -53,6 +53,15 @@ jobs:
       - name: CLI reference is current
         run: pnpm run docs:check
 
+      - name: Token-cost table is current
+        run: pnpm run cost:check
+
+      # The example is documentation that has to keep working: it drives every
+      # documented command against a local service and asserts the results, so a
+      # README command that breaks fails the build instead of misleading a user.
+      - name: examples/quickstart works end to end
+        run: pnpm run example
+
       - name: Smoke test the built CLI
         run: node dist/cli/index.js --version
 

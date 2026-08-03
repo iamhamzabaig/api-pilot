@@ -43,6 +43,9 @@
     "bench": "vitest run --config vitest.bench.config.ts",
     "docs": "node scripts/generate-cli-docs.mjs",
     "docs:check": "node scripts/generate-cli-docs.mjs --check",
+    "cost": "node scripts/token-cost.mjs",
+    "cost:check": "node scripts/token-cost.mjs --check",
+    "example": "node examples/quickstart/verify.mjs",
     "test:watch": "vitest"
   },
   "packageManager": "pnpm@11.18.0",
