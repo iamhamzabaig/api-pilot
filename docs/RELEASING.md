@@ -8,14 +8,10 @@ automated, plus the reasoning for why each step is where it is.
 None of this can be done from a clone — it needs the GitHub repository and an
 npm account.
 
-1. **Create the GitHub remote and push.** The repository has no remote yet.
-   Provenance is produced from the workflow's OIDC identity, so a release
-   published from a laptop cannot carry one.
-
-   ```sh
-   git remote add origin git@github.com:<owner>/api-pilot.git
-   git push -u origin main
-   ```
+1. ~~**Create the GitHub remote and push.**~~ **Done** —
+   `https://github.com/iamhamzabaig/api-pilot.git`, all branches pushed. This was
+   the prerequisite for everything else: provenance is produced from the workflow's
+   OIDC identity, so a release published from a laptop cannot carry one.
 
 2. **Add the `NPM_TOKEN` secret.** An npm *automation* token with publish scope,
    under Settings → Secrets → Actions. Automation rather than a classic token,
