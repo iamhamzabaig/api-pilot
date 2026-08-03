@@ -44,7 +44,7 @@ natural language: "cancel a subscription" works.
 
 Options:
       --limit <n>    how many hits to show (default: 10)
-      --spec <path>  spec to search (repeatable; overrides the workspace list)
+      --spec <src>   spec path or URL (repeatable; overrides the workspace list)
       --dir <path>   directory to search upward from (default: cwd)
       --json         machine-readable output
   -h, --help         show this help
@@ -61,7 +61,7 @@ within a byte budget.
 
 Options:
       --max-bytes <n>  output budget (default: 1024)
-      --spec <path>    spec to read (repeatable; overrides the workspace list)
+      --spec <src>     spec path or URL (repeatable; overrides the workspace list)
       --dir <path>     directory to search upward from (default: cwd)
       --json           machine-readable output
   -h, --help           show this help

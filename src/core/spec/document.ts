@@ -42,6 +42,20 @@ export interface LoadOptions {
    * `$ref: ../../../../etc/passwd` is otherwise a file read primitive.
    */
   readonly refRoot?: string;
+  /**
+   * Where a fetched spec is cached — normally `<workspace>/.apipilot/.cache`.
+   * Omitted means no caching, which is what `--spec https://…` gets.
+   */
+  readonly cacheDir?: string;
+}
+
+/**
+ * Distinguishes `specs:` entries that are URLs from ones that are paths, before
+ * anything tries to `resolve()` them — a Windows path is not a URL even though
+ * `C:\…` parses as one, so this asks for a scheme *and* an authority.
+ */
+export function isSpecUrl(source: string): boolean {
+  return /^[a-z][a-z0-9+.-]*:\/\//i.test(source);
 }
 
 export async function loadSpec(path: string, options: LoadOptions = {}): Promise<LoadedSpec> {
@@ -88,9 +102,18 @@ export async function loadSpec(path: string, options: LoadOptions = {}): Promise
   };
 }
 
-/** Parses an already-in-memory document, for tests and for future URL loading. */
-export function fromValue(value: JsonValue, id: string): LoadedSpec {
-  const warnings: string[] = [];
+/**
+ * Parses an already-in-memory document: tests, and specs fetched over HTTP.
+ * A remote spec cannot follow a `$ref` into a sibling file, so it lands here
+ * rather than in `loadSpec` — `initialWarnings` is how the fetch reports a
+ * stale cache through the same channel every other spec warning uses.
+ */
+export function fromValue(
+  value: JsonValue,
+  id: string,
+  initialWarnings: readonly string[] = [],
+): LoadedSpec {
+  const warnings: string[] = [...initialWarnings];
   return {
     id,
     root: value,
@@ -119,12 +142,16 @@ async function readDocument(path: string): Promise<JsonValue> {
   } catch (error) {
     throw new ApiPilotError("NOT_FOUND", `Could not read spec ${path}`, { cause: error });
   }
+  return parseDocument(raw, path);
+}
 
+/** One parser for every source, so a bad spec reads the same however it arrived. */
+export function parseDocument(raw: string, label: string): JsonValue {
   try {
     // The `yaml` parser accepts JSON, so one code path covers both formats.
     return parseYaml(raw);
   } catch (error) {
-    throw new ApiPilotError("CONFIG_INVALID", `${path} is not valid YAML or JSON`, {
+    throw new ApiPilotError("CONFIG_INVALID", `${label} is not valid YAML or JSON`, {
       cause: error,
     });
   }

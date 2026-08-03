@@ -7,9 +7,13 @@ import { parseNumber } from "../args.js";
 import { emit, pad, pluralise } from "../output.js";
 
 /**
- * Discovery. Both commands read specs and touch no network, so neither one
+ * Discovery. Both commands read specs and issue no requests, so neither one
  * loads the executor — which is the whole reason commands are split by their
  * dependency footprint rather than one file per verb.
+ *
+ * The exception is a `specs:` entry that is a URL, which has to be fetched.
+ * `SpecIndex` keeps that behind a dynamic import so a workspace of local files
+ * still pays nothing for it.
  */
 
 const SEARCH_HELP = `Usage:
@@ -20,7 +24,7 @@ natural language: "cancel a subscription" works.
 
 Options:
       --limit <n>    how many hits to show (default: 10)
-      --spec <path>  spec to search (repeatable; overrides the workspace list)
+      --spec <src>   spec path or URL (repeatable; overrides the workspace list)
       --dir <path>   directory to search upward from (default: cwd)
       --json         machine-readable output
   -h, --help         show this help
@@ -34,7 +38,7 @@ within a byte budget.
 
 Options:
       --max-bytes <n>  output budget (default: 1024)
-      --spec <path>    spec to read (repeatable; overrides the workspace list)
+      --spec <src>     spec path or URL (repeatable; overrides the workspace list)
       --dir <path>     directory to search upward from (default: cwd)
       --json           machine-readable output
   -h, --help           show this help
@@ -152,5 +156,7 @@ async function openIndex(
       hint: "Add a `specs:` list to .apipilot/environments.yaml, or pass --spec <path>.",
     });
   }
-  return SpecIndex.fromPaths(workspace.specPaths);
+  // A URL in the list is fetched once and cached; `--spec <url>` above has no
+  // workspace to cache into and refetches.
+  return SpecIndex.fromPaths(workspace.specPaths, { cacheDir: workspace.cacheDir });
 }

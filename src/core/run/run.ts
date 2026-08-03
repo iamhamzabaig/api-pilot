@@ -56,6 +56,7 @@ export async function runRequest(
   const meta = await store.put(response, prepared.summary, {
     redactor: prepared.redactor,
     intent,
+    environment: bundle.environment.name,
   });
 
   return {

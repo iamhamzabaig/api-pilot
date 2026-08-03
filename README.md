@@ -73,6 +73,7 @@ version: 1
 default: local
 specs:
   - openapi/billing.yaml
+  - https://api.example.com/openapi.json   # fetched once, cached for a day
 environments:
   local:
     baseUrl: http://localhost:3000
@@ -91,7 +92,7 @@ environments:
 - **[Architecture blueprint](docs/BLUEPRINT.md)** — vision, competitive analysis, requirements, module breakdown, roadmap, milestones
 - **[ADR-0001](docs/adr/0001-language-and-stack.md)** — TypeScript on Node 22+, and the explicit trigger for revisiting it
 - **[ADR-0002](docs/adr/0002-fixed-mcp-tool-surface.md)** — the fixed six-tool surface, and the risk it takes on
-- **[ADR-0003](docs/adr/0003-lazy-ref-resolution-and-in-house-search.md)** — lazy `$ref` resolution and an in-house search ranker
+- **[ADR-0003](docs/adr/0003-lazy-ref-resolution-and-in-house-search.md)** — lazy `$ref` resolution, an in-house search ranker, and what authorises fetching a spec by URL
 - **[ADR-0004](docs/adr/0004-hand-rolled-mcp-stdio-transport.md)** — a hand-rolled stdio transport instead of the MCP SDK
 
 Everything lives in plain files in your repo: OpenAPI specs, `.http` requests, and a YAML environment file that holds secret *references*, never secret values. No account, no cloud, no telemetry.

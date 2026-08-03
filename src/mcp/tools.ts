@@ -1,12 +1,13 @@
 import { z } from "zod";
 import { ApiPilotError } from "../core/errors.js";
-import { inspect as inspectResponse } from "../core/inspect/inspect.js";
+import { inspectRun } from "../core/inspect/inspect-run.js";
 import { type RunResult, replayRun, runRequest } from "../core/run/run.js";
 import { SpecIndex } from "../core/spec/spec-index.js";
 import { ResponseStore } from "../core/store/response-store.js";
 import {
   environmentView,
   historyView,
+  inspectView,
   operationView,
   runView,
   searchView,
@@ -176,25 +177,10 @@ const TOOL_LIST: readonly Tool[] = [
       };
 
       const workspace = await Workspace.find(context.dir);
-      const store = new ResponseStore(workspace.cacheDir);
-      const meta = await store.get(input.handle);
-      const result = inspectResponse(
-        { headers: meta.headers, body: await store.readBody(input.handle) },
-        options,
-      );
+      const result = await inspectRun(input.handle, workspace, options);
 
       return {
-        content: [
-          textContent(
-            stringify({
-              handle: input.handle,
-              kind: result.kind,
-              truncated: result.truncated,
-              ...(result.matchCount === undefined ? {} : { matchCount: result.matchCount }),
-            }),
-          ),
-          textContent(fence(result.text)),
-        ],
+        content: [textContent(stringify(inspectView(result))), textContent(fence(result.text))],
       };
     },
   },
@@ -325,7 +311,7 @@ async function openIndex(context: ToolContext): Promise<SpecIndex> {
       hint: "Add a `specs:` list to .apipilot/environments.yaml.",
     });
   }
-  return SpecIndex.fromPaths(workspace.specPaths);
+  return SpecIndex.fromPaths(workspace.specPaths, { cacheDir: workspace.cacheDir });
 }
 
 function parseRange(raw: string): { offset: number; length: number } {

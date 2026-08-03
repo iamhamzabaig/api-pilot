@@ -2,6 +2,7 @@ import { ApiPilotError } from "../errors.js";
 import { type DescribeOptions, describeOperation } from "./describe.js";
 import {
   fromValue,
+  isSpecUrl,
   type JsonValue,
   type LoadedSpec,
   type LoadOptions,
@@ -57,10 +58,23 @@ export class SpecIndex {
     return [...new Set(all)];
   }
 
-  static async fromPaths(paths: readonly string[], options: LoadOptions = {}): Promise<SpecIndex> {
+  /**
+   * A source is a file path or an `http(s)://` URL. The remote loader is behind
+   * a dynamic import so a workspace with only local specs never loads the HTTP
+   * stack to run `search`.
+   */
+  static async fromPaths(
+    sources: readonly string[],
+    options: LoadOptions = {},
+  ): Promise<SpecIndex> {
     const specs: LoadedSpec[] = [];
-    for (const path of paths) {
-      specs.push(await loadSpec(path, options));
+    for (const source of sources) {
+      if (isSpecUrl(source)) {
+        const { loadRemoteSpec } = await import("./remote.js");
+        specs.push(await loadRemoteSpec(source, options));
+      } else {
+        specs.push(await loadSpec(source, options));
+      }
     }
     return new SpecIndex(specs);
   }

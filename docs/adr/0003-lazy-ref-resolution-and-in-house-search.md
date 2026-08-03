@@ -1,9 +1,10 @@
-# ADR-0003: Resolve `$ref` lazily and write the search ranker in-house
+# ADR-0003: How the spec module loads, resolves and ranks
 
 - **Status:** Accepted
-- **Date:** 2026-07-31
+- **Date:** 2026-07-31, extended 2026-08-03
 - **Deciders:** Lead Architect
 - **Amends:** the tooling choices in BLUEPRINT §12.3, and the dependency budget reasoning in ADR-0001
+- **Decisions:** (1) lazy `$ref` resolution, (2) an in-house ranker, (3) a configured spec URL is its own authorisation
 
 ## Context
 
@@ -11,7 +12,9 @@ Milestone M4 had to turn OpenAPI documents into something searchable and
 describable. The blueprint pencilled in `@apidevtools/json-schema-ref-parser`
 for `$ref` handling and left the search implementation open. Building it
 surfaced two decisions worth recording, because both went against the
-default of "take the obvious dependency".
+default of "take the obvious dependency". A third was added in M7, when the
+module gained the ability to load a spec over HTTP and therefore had to answer
+what authorises that fetch.
 
 ## Decision 1: lazy `$ref` resolution instead of a dereferencing library
 
@@ -84,3 +87,50 @@ realistic queries. A dependency would have had to be fought at each step.
 - If ranking proves inadequate on real specs at scale, the escape hatch is to
   keep the tokeniser and intent layer and swap only the scoring — the two are
   already separate.
+
+## Decision 3: a spec URL is authorised by being configured, not by the allowlist
+
+*Added 2026-08-03 (M7), when loading a spec from a URL was built.*
+
+`specs:` may now hold an `http(s)://` URL, which makes **indexing an egress
+event** — the first one that is not a request the user asked for. The obvious
+guard is the per-environment host allowlist that every request passes. We do not
+use it, for a structural reason: the allowlist is per-environment, specs are
+per-workspace, and `search` deliberately never resolves an environment. Gating
+spec loading on the allowlist would mean resolving secrets before you can ask
+"which endpoint cancels a subscription", which is both a worse failure mode
+(one unset variable and discovery stops) and a wider blast radius.
+
+What authorises the fetch instead is that a human wrote the URL into a committed
+config file. That is the same reasoning that lets `specs:` name arbitrary local
+paths.
+
+Three guards remain, and they are the ones that cover what configuration cannot:
+
+1. **The protocol gate** — `assertProtocolAllowed`, the same function every
+   request goes through. http and https only, so `file:` and `data:` do not
+   become a read primitive through the spec list.
+2. **Same-host redirects only.** A `Location` header is written by the remote
+   server, and the configured URL authorises *that host*, not wherever it
+   forwards to. This is the guard the allowlist would otherwise have provided.
+3. **A 16 MB cap**, enforced by the executor, so an endless response cannot fill
+   the cache directory.
+
+**Consequences:**
+
+- A fetched spec lands in `.apipilot/.cache/specs/<hash of url>.yaml` with a
+  fixed 24-hour TTL. No `--refresh` flag: deleting the file is the escape hatch,
+  and a flag can be added when someone is genuinely working against an hourly
+  spec.
+- **A failed refresh falls back to the stale copy** and reports it through the
+  spec warnings channel. A spec is a description, not state; a day-old
+  description still answers the question, and going offline should not break
+  discovery.
+- A remote spec cannot follow a `$ref` into a sibling file — it is loaded through
+  `fromValue`, which warns on external refs. Fetching a spec's neighbours would
+  mean deriving new URLs from document contents, which is exactly the "URLs found
+  in data are never followed" line in SECURITY.md T2.
+- The fetch path lives in `src/core/spec/remote.ts` behind a **dynamic import**,
+  so a workspace of local specs still runs `search` without loading the HTTP
+  stack. That is the same lazy-loading discipline the CLI commands use, applied
+  one layer down.

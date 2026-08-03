@@ -140,8 +140,12 @@ These have silent failure modes. Each has a test that is the real specification.
    `tests/integration/canary.test.ts` injects six unique canaries through every
    config path that can carry a credential, sends real requests, and asserts each
    canary reached the wire *and* appears in none of: the request summary, digest
-   text, inspect output, the metadata file on disk, or a thrown error's message
-   and stack. Base64 forms checked separately.
+   text, inspect output *including the stored-run path*, the metadata file on
+   disk, or a thrown error's message and stack. Base64 forms checked separately.
+   The stored-run path rebuilds its redactor from the record's `environment`, and
+   two cases in that suite assert the honest failure: when it cannot be rebuilt,
+   `redacted` is false and the canary *is* in the output. An adapter that drops
+   that flag reopens the hole.
 
 2. **No output exceeds its byte budget.** `capBytes` is the structural backstop.
    Digest ≤ 2 KB default, describe ≤ 1 KB, inspect ≤ 8 KB. A seeded generator in
@@ -259,10 +263,10 @@ becomes "done".
 | Gap | Where it belongs |
 |---|---|
 | **No real-world spec validation.** M4's criterion "loads 5 real-world public specs" is **not met** — CI cannot touch the network and Stripe's spec is 6 MB. Five synthetic fixtures encode real failure modes instead; the ≥500-op case is generated. Closable with no code change: drop a downloaded spec into `tests/fixtures/specs/` (it is globbed; `local-*.yaml` is gitignored). See that directory's README. **Worth doing manually before v0.1 — expect it to find parser gaps.** | before M7 |
-| **Loading a spec by URL.** BLUEPRINT §6.1 tags it MVP; it was pencilled in for M6 and **was not built**. It is not part of the MCP adapter — it belongs in `spec/document.ts`, and it turns loading into an egress event that has to go through the policy gate and needs a cache under `.apipilot/.cache/specs/`. Doing it inside M6 would have meant a network path landing in the same commit as a new protocol surface. | M7 |
+| ~~**Loading a spec by URL.**~~ **Closed in M7.** `src/core/spec/remote.ts`, behind a dynamic import so a local-only workspace still runs `search` without the HTTP stack. Protocol gate, same-host redirects only, 16 MB cap, 24-hour cache in `.apipilot/.cache/specs/`, stale-copy fallback when a refresh fails. Why it is *not* gated on the host allowlist is ADR-0003 decision 3. | done |
 | **Cold start is gated on an absolute 200 ms p95, not on a >15% regression.** A regression gate needs a committed baseline per OS, and a baseline that drifts upward one accepted commit at a time is worse than no baseline. The bench prints p50/p95 on every run so a creep from 60 ms to 190 ms is visible while still passing. | M7, if the absolute gate proves too loose |
 | **`--body` takes text only.** No `@file` shorthand, no streaming upload, no multipart. `--body-file` covers the common case; a binary body is not replayable (see §6). | when a real use case lands |
-| **`api_inspect` output does not pass a redactor**, matching the CLI's `inspect`. Both read a stored run, and a stored run does not record which environment produced it, so there is no redactor to seed. A credential a service echoes into its own response body is scrubbed from the *digest* (which is built while the environment is still resolved) but not from a later inspect. Closing it means recording the environment name in the metadata record. | M7 — it is the one hole left in invariant 1 |
+| ~~**`api_inspect` output does not pass a redactor.**~~ **Closed in M7.** The metadata record now carries `environment`, and `inspectRun()` in `src/core/inspect/inspect-run.ts` rebuilds that environment's redactor before rendering. Both adapters route through it. Two cases cannot rebuild one — a pre-M7 record, and an environment whose secrets no longer resolve — and those return `redacted: false` with a warning rather than refusing, because losing access to a stored response over an unset shell variable is worse. Re-resolving gets *today's* secrets, so a value rotated since the run is still not caught. | done, with the rotation caveat |
 | **MCP is stdio only.** No HTTP/SSE transport; that is the case where ADR-0004 says to take the SDK instead. | v1, demand-gated |
 | CodeQL, Dependabot/Renovate, Changesets, issue/PR templates | M7 |
 | `.apipilot/` example workspace under `examples/`, executed in CI | M7 |
@@ -306,7 +310,10 @@ src/
    ├─ exec/execute.ts           the ONLY module doing network I/O; manual redirects
    ├─ store/response-store.ts   content-addressed bodies, per-run metadata
    ├─ digest/{shape,digest}.ts  structural inference + budgeted rendering
-   ├─ inspect/{json-path,inspect}.ts   JSONPath subset (no filters) + capped drill-down
+   ├─ inspect/
+   │  ├─ json-path.ts           JSONPath subset — no filter expressions, ever
+   │  ├─ inspect.ts             capped drill-down; takes a redactor, knows no storage
+   │  └─ inspect-run.ts         the stored-run path: rebuilds the run's redactor
    ├─ redact/redactor.ts        THE choke point — raw, base64, percent-encoded forms
    ├─ secrets/resolvers.ts      env + file; the one interface with 3 known impls
    ├─ vars/interpolate.ts       {{var}}; depth-first, never rescans substituted text
@@ -316,6 +323,7 @@ src/
    ├─ workspace/{schema,workspace}.ts   .apipilot/ discovery, YAML + Zod, local overrides
    └─ spec/
       ├─ document.ts            load + LAZY $ref, directory-escape guard
+      ├─ remote.ts              spec by URL — the one egress event in discovery
       ├─ operations.ts          flatten to operations; never throws, only warns
       ├─ schema-shape.ts        JSON Schema → the same Shape the digest renders
       ├─ search.ts              tokeniser + method intent + IDF + drift penalty

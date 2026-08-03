@@ -1,3 +1,4 @@
+import type { InspectRunResult } from "./inspect/inspect-run.js";
 import type { RunResult } from "./run/run.js";
 import type { OperationRecord } from "./spec/operations.js";
 import type { SearchHit } from "./spec/search.js";
@@ -33,12 +34,32 @@ export function runView(result: RunResult) {
   };
 }
 
+/**
+ * One inspected slice, minus its text — adapters place that themselves, because
+ * the CLI prints it and MCP puts it inside the untrusted fence.
+ *
+ * `redacted` is not decoration. It is false exactly when the run's environment
+ * could not be rebuilt, and it is the only signal a caller gets that the bytes
+ * it is about to read were never scrubbed.
+ */
+export function inspectView(result: InspectRunResult) {
+  return {
+    handle: result.handle,
+    kind: result.kind,
+    truncated: result.truncated,
+    ...(result.matchCount === undefined ? {} : { matchCount: result.matchCount }),
+    redacted: result.redacted,
+    ...(result.redactionWarning === undefined ? {} : { redactionWarning: result.redactionWarning }),
+  };
+}
+
 export function historyView(runs: readonly StoredResponseMeta[]) {
   return runs.map((run) => ({
     handle: run.handle,
     createdAt: run.createdAt,
     method: run.request.method,
     url: run.request.url,
+    environment: run.environment,
     status: run.status,
     durationMs: run.durationMs,
     bodyBytes: run.bodyBytes,

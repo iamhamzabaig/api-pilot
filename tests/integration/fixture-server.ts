@@ -154,6 +154,12 @@ async function handle(
     });
   }
 
+  if (path === "/spec.yaml") {
+    res.writeHead(200, { "content-type": "application/yaml" });
+    res.end(REMOTE_SPEC);
+    return;
+  }
+
   if (path === "/set-cookies") {
     res.writeHead(200, {
       "content-type": "application/json",
@@ -165,6 +171,31 @@ async function handle(
 
   return json(res, 404, { error: "no such fixture route", path });
 }
+
+/**
+ * Served from `/spec.yaml`, so the URL-loading path is exercised over a real
+ * socket without any test reaching the public internet (NFR N7).
+ */
+const REMOTE_SPEC = `openapi: 3.0.3
+info:
+  title: Remote Widgets API
+  version: "1"
+paths:
+  /widgets:
+    get:
+      operationId: listWidgets
+      summary: Returns every widget you own.
+      responses:
+        "200":
+          description: A list of widgets.
+  /widgets/{id}:
+    delete:
+      operationId: deleteWidget
+      summary: Permanently removes one widget.
+      responses:
+        "204":
+          description: Gone.
+`;
 
 function json(res: ServerResponse, status: number, payload: unknown): void {
   const encoded = JSON.stringify(payload);

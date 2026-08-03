@@ -6,6 +6,7 @@ import { digest } from "../../src/core/digest/digest.js";
 import type { ApiPilotError } from "../../src/core/errors.js";
 import { execute } from "../../src/core/exec/execute.js";
 import { inspect } from "../../src/core/inspect/inspect.js";
+import { inspectRun } from "../../src/core/inspect/inspect-run.js";
 import { redirectGuard } from "../../src/core/policy/policy.js";
 import { redactError } from "../../src/core/redact/redactor.js";
 import { prepareRequest, type RequestIntent } from "../../src/core/request/prepare.js";
@@ -121,7 +122,7 @@ afterAll(async () => {
 async function callAndCollect(
   environmentName: string,
   intent: RequestIntent,
-): Promise<{ streams: string[]; wire: string }> {
+): Promise<{ streams: string[]; wire: string; handle: string }> {
   const bundle = await workspace.resolveEnvironment(environmentName);
   const prepared = prepareRequest(intent, bundle);
 
@@ -131,11 +132,21 @@ async function callAndCollect(
   });
   const wireRequests = server.requests.slice(before);
 
-  const meta = await store.put(response, prepared.summary, { redactor: bundle.redactor });
+  const meta = await store.put(response, prepared.summary, {
+    redactor: bundle.redactor,
+    environment: environmentName,
+  });
   const metaOnDisk = await readFile(
     join(root, WORKSPACE_DIRNAME, ".cache", "meta", `${meta.handle}.json`),
     "utf8",
   );
+
+  // The live-redactor paths above and the stored path below are different
+  // guarantees: the second one has to rebuild the redactor from the record,
+  // which is where inspect used to return the raw bytes.
+  const stored = await inspectRun(meta.handle, workspace);
+  const storedHeaders = await inspectRun(meta.handle, workspace, { headers: true });
+  expect(stored.redacted, `${environmentName}: stored inspect lost its redactor`).toBe(true);
 
   const { redactor } = bundle;
   return {
@@ -144,9 +155,12 @@ async function callAndCollect(
       digest(response, { handle: meta.handle, redactor }).text,
       inspect(response, { redactor }).text,
       inspect(response, { headers: true, redactor }).text,
+      stored.text,
+      storedHeaders.text,
       metaOnDisk,
     ],
     wire: JSON.stringify(wireRequests),
+    handle: meta.handle,
   };
 }
 
@@ -239,6 +253,44 @@ describe("canary suite", () => {
 
     redactError(error, bundle.redactor);
     expectNoCanaries([error.message, error.stack ?? ""], "error");
+  });
+
+  it("reports an unredacted slice rather than pretending, when the environment is gone", async () => {
+    // /echo puts the bearer token in the response body, and the body is stored
+    // verbatim — that is deliberate, the store is the vault. Redaction on the
+    // way back out depends on re-resolving the environment, so this is what a
+    // rotated or unset credential looks like.
+    const { handle } = await callAndCollect("bearerEnv", { method: "GET", url: "/echo" });
+
+    const saved = process.env.CANARY_BEARER;
+    delete process.env.CANARY_BEARER;
+    try {
+      const result = await inspectRun(handle, workspace);
+
+      expect(result.redacted).toBe(false);
+      expect(result.redactionWarning).toContain("no longer resolves");
+      // Asserted, not tolerated: the flag is the only thing standing between a
+      // caller and these bytes, so a caller that drops it must be a test failure
+      // somewhere and not a silent leak here.
+      expect(result.text).toContain(CANARY.bearer);
+    } finally {
+      process.env.CANARY_BEARER = saved;
+    }
+  });
+
+  it("flags a run that never recorded its environment", async () => {
+    const bundle = await workspace.resolveEnvironment("bearerEnv");
+    const prepared = prepareRequest({ method: "GET", url: "/echo" }, bundle);
+    const response = await execute(prepared.request, {
+      allowRedirectTo: redirectGuard(prepared.environment),
+    });
+    // No `environment`, as every record written before M7 looks.
+    const meta = await store.put(response, prepared.summary, { redactor: bundle.redactor });
+
+    const result = await inspectRun(meta.handle, workspace);
+
+    expect(result.redacted).toBe(false);
+    expect(result.redactionWarning).toContain("does not record which environment");
   });
 
   it("leaves no canary anywhere in the stored metadata directory", async () => {

@@ -33,6 +33,11 @@ export {
   type InspectTarget,
   inspect,
 } from "./core/inspect/inspect.js";
+export {
+  type InspectRunOptions,
+  type InspectRunResult,
+  inspectRun,
+} from "./core/inspect/inspect-run.js";
 export { type PathSegment, parsePath, queryPath } from "./core/inspect/json-path.js";
 export {
   assertHostAllowed,
@@ -83,9 +88,11 @@ export {
 } from "./core/spec/describe.js";
 export {
   fromValue,
+  isSpecUrl,
   type LoadedSpec,
   type LoadOptions,
   loadSpec,
+  parseDocument,
   type RefTarget,
 } from "./core/spec/document.js";
 export {
@@ -96,6 +103,7 @@ export {
   type OperationResponse,
   type ParameterLocation,
 } from "./core/spec/operations.js";
+export { loadRemoteSpec } from "./core/spec/remote.js";
 export {
   DEFAULT_SCHEMA_LIMITS,
   type SchemaShapeLimits,

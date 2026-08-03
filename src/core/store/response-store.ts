@@ -43,6 +43,16 @@ export interface PutOptions {
    * a credential instead of referencing one.
    */
   readonly intent?: RequestIntent;
+
+  /**
+   * The environment this run was made under, by name.
+   *
+   * Recorded so a later `inspect` can rebuild that environment's redactor. A
+   * stored body is verbatim, and a service that echoes your credential back into
+   * its own response body puts it in there; without this field there is nothing
+   * to seed a redactor from once the run is over.
+   */
+  readonly environment?: string;
 }
 
 /**
@@ -73,6 +83,8 @@ export interface StoredResponseMeta {
   readonly request: StoredRequestSummary;
   /** Absent on runs recorded before replay existed, and on runs put without one. */
   readonly intent?: StoredRequestIntent;
+  /** Absent on runs recorded before inspect re-seeded a redactor. See `PutOptions`. */
+  readonly environment?: string;
   readonly status: number;
   readonly statusText: string;
   readonly headers: readonly HeaderPair[];
@@ -133,6 +145,7 @@ export class ResponseStore {
       createdAt: new Date().toISOString(),
       request,
       ...(options.intent === undefined ? {} : { intent: toStoredIntent(options.intent) }),
+      ...(options.environment === undefined ? {} : { environment: options.environment }),
       status: response.status,
       statusText: response.statusText,
       headers: response.headers,

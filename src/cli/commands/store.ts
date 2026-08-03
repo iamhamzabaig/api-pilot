@@ -1,12 +1,12 @@
 import { parseArgs } from "node:util";
 import { formatBytes } from "../../core/body.js";
 import { ApiPilotError } from "../../core/errors.js";
-import { inspect as inspectResponse } from "../../core/inspect/inspect.js";
+import { inspectRun } from "../../core/inspect/inspect-run.js";
 import { ResponseStore } from "../../core/store/response-store.js";
-import { historyView } from "../../core/views.js";
+import { historyView, inspectView } from "../../core/views.js";
 import { Workspace } from "../../core/workspace/workspace.js";
 import { parseNumber } from "../args.js";
-import { emit, pad, pluralise } from "../output.js";
+import { emit, pad, pluralise, writeError } from "../output.js";
 
 /** The two read-only commands over the local store: what ran, and what came back. */
 
@@ -130,29 +130,18 @@ export async function inspect(argv: readonly string[]): Promise<void> {
   };
 
   const workspace = await Workspace.find(values.dir);
-  const store = new ResponseStore(workspace.cacheDir);
-  const meta = await store.get(handle);
-  const body = await store.readBody(handle);
+  const result = await inspectRun(handle, workspace, options);
 
-  const result = inspectResponse({ headers: meta.headers, body }, options);
+  // A slice that could not be scrubbed says so on stderr, where it cannot be
+  // mistaken for part of the response.
+  if (result.redactionWarning !== undefined) writeError(`warning: ${result.redactionWarning}`);
 
-  emit(
-    values.json === true,
-    {
-      handle,
-      kind: result.kind,
-      text: result.text,
-      truncated: result.truncated,
-      ...(result.matchCount === undefined ? {} : { matchCount: result.matchCount }),
-    },
-    () =>
-      [
-        result.text,
-        ...(result.matchCount === undefined
-          ? []
-          : [`\n(${pluralise(result.matchCount, "match")})`]),
-        ...(result.truncated ? ["\n(truncated to fit the output budget)"] : []),
-      ].join(""),
+  emit(values.json === true, { ...inspectView(result), text: result.text }, () =>
+    [
+      result.text,
+      ...(result.matchCount === undefined ? [] : [`\n(${pluralise(result.matchCount, "match")})`]),
+      ...(result.truncated ? ["\n(truncated to fit the output budget)"] : []),
+    ].join(""),
   );
 }
 

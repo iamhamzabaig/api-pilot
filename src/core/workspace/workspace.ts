@@ -12,6 +12,7 @@ import {
   resolverFor,
   type SecretResolver,
 } from "../secrets/resolvers.js";
+import { isSpecUrl } from "../spec/document.js";
 import { expandVariables, interpolate } from "../vars/interpolate.js";
 import {
   type EnvironmentDeclaration,
@@ -54,7 +55,11 @@ export class Workspace {
   /** Non-fatal configuration problems, worth showing the user once. */
   readonly warnings: readonly string[];
 
-  /** Configured spec documents, resolved to absolute paths. */
+  /**
+   * Configured spec sources: local paths resolved against the workspace root,
+   * `http(s)://` URLs left alone. `resolve()` would mangle a URL into a path
+   * relative to the root, so the two cases have to be told apart here.
+   */
   readonly specPaths: readonly string[];
 
   readonly #declarations: ReadonlyMap<string, EnvironmentDeclaration>;
@@ -71,7 +76,7 @@ export class Workspace {
   ) {
     this.root = root;
     this.cacheDir = join(root, WORKSPACE_DIRNAME, CACHE_DIRNAME);
-    this.specPaths = specs.map((path) => resolve(root, path));
+    this.specPaths = specs.map((source) => (isSpecUrl(source) ? source : resolve(root, source)));
     this.#declarations = declarations;
     this.#defaultEnvironment = defaultEnvironment;
     this.warnings = warnings;
