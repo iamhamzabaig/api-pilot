@@ -1,5 +1,5 @@
 {
-  "name": "api-pilot",
+  "name": "@hamzu/api-pilot",
   "version": "0.1.0",
   "description": "AI-native API execution engine for coding agents — discover, execute, and debug HTTP APIs from the terminal without blowing up your context window.",
   "keywords": [
@@ -42,6 +42,9 @@
     "dist",
     "!dist/**/*.map"
   ],
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "check": "biome ci .",

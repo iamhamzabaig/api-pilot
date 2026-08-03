@@ -1,4 +1,4 @@
-# api-pilot
+# @hamzu/api-pilot
 
 ## 0.1.0
 

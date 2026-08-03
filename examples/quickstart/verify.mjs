@@ -14,7 +14,7 @@ import { promisify } from "node:util";
  * a README command that stops working fails the build.
  *
  * It needs a build first (`pnpm run build`) — it drives `dist/cli/index.js`, the
- * same file `npx api-pilot` resolves to.
+ * same file `npx @hamzu/api-pilot` resolves to.
  */
 
 const run = promisify(execFile);

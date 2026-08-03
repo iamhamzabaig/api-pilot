@@ -13,16 +13,58 @@ npm account.
    the prerequisite for everything else: provenance is produced from the workflow's
    OIDC identity, so a release published from a laptop cannot carry one.
 
-2. **Add the `NPM_TOKEN` secret.** An npm *automation* token with publish scope,
-   under Settings → Secrets → Actions. Automation rather than a classic token,
-   so it works with 2FA enforced on the account.
+2. **Authenticate the publish — and not with a token.** This resisted three
+   attempts and the reason is worth writing down.
+
+   With 2FA on the account in `auth-and-writes` mode, `npm publish` from CI ends
+   in `EOTP` — it wants a one-time password, and a runner has nobody to type
+   one. A granular access token does not change that; only a token with *bypass
+   2FA* does, and npm is closing that door: [bypass tokens lose account
+   management in August 2026 and direct publishing in January
+   2027](https://github.blog/changelog/2026-07-08-npm-install-time-security-and-gat-bypass2fa-deprecation/).
+
+   So the first release of `0.1.0` was published by hand, with an interactive
+   OTP, and carries **no provenance attestation** — attestation comes from the
+   workflow's OIDC identity and cannot be produced from a laptop.
+
+   Every release after it uses **trusted publishing (OIDC)**, which has no
+   standing credential at all. It could not be set up first: npm only accepts
+   trusted-publisher configuration for a package that already exists, unlike
+   PyPI. Configure it once on the package's npm settings page —
+
+   | Field | Value |
+   |---|---|
+   | Organization or user | `iamhamzabaig` |
+   | Repository | `api-pilot` |
+   | Workflow filename | `release.yml` |
+   | Environment | `release` |
+
+   — all case-sensitive and exact. The workflow already has the `id-token:
+   write` permission OIDC needs. Once it is configured, delete the `NPM_TOKEN`
+   secret and the `NODE_AUTH_TOKEN` block from `release.yml`; leaving a
+   long-lived publish credential in place after it stops being load-bearing is
+   the whole thing OIDC exists to avoid.
 
 3. **Create the `release` environment** (Settings → Environments) and add
    yourself as a required reviewer. Tag pushes then pause for approval before
    anything reaches npm — the one guard against a mistyped tag publishing.
 
-4. **Reserve the name.** `npm view api-pilot` — if it is taken, the package name
-   in `package.json` and every `npx api-pilot` reference has to change together.
+4. ~~**Reserve the name.**~~ **Done, the hard way.** `npm view api-pilot` returned
+   404, which says only that nobody registered it — *not* that it can be
+   published. npm runs a typosquat similarity check at publish time, and it
+   rejected `api-pilot` as too close to the existing `apipilot`:
+
+   ```
+   403 Forbidden - PUT https://registry.npmjs.org/api-pilot
+   Package name too similar to existing package apipilot
+   ```
+
+   Hence the scope. `@hamzu/api-pilot` skips the similarity check entirely, which
+   is the only way to know a name is available before attempting the publish. The
+   `bin` is still `api-pilot`, so every documented command is unchanged; only
+   install and `npx` lines carry the scope. Scoped packages default to
+   restricted, so `publishConfig.access` is set to `public` in `package.json`
+   rather than relying on the `--access public` flag alone.
 
 5. **Turn on private vulnerability reporting** (Settings → Security). SECURITY.md
    tells people to use it.
@@ -66,7 +108,7 @@ npm account.
    ```
 
 5. **Approve the `release` environment** when the workflow asks. It publishes
-   with `--provenance`, then smoke-tests `npx api-pilot@<version>` on Linux,
+   with `--provenance`, then smoke-tests `npx @hamzu/api-pilot@<version>` on Linux,
    macOS and Windows — `--version`, and a `tools/list` frame through the MCP
    server.
 
@@ -99,5 +141,5 @@ make the next honest thing we write less believable.
 `npm unpublish` is available for 72 hours and is almost always the wrong tool: it
 breaks anyone who already installed. Publish a patch instead. For something
 actively harmful — a leaked credential in the tarball, a destructive bug — run
-`npm deprecate api-pilot@<version> "<reason>"` first, so installs warn while the
+`npm deprecate @hamzu/api-pilot@<version> "<reason>"` first, so installs warn while the
 fix builds.

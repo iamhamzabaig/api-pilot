@@ -59,13 +59,13 @@ native builds, no post-install scripts.
 Nothing to install if you do not want to; `npx` fetches it on demand:
 
 ```sh
-npx api-pilot --version
+npx @hamzu/api-pilot --version
 ```
 
 Or install it once, so `api-pilot` works everywhere:
 
 ```sh
-npm install -g api-pilot
+npm install -g @hamzu/api-pilot
 ```
 
 You can also add it to a project and script against it:
@@ -178,7 +178,7 @@ the rest itself.
 ### Claude Code
 
 ```sh
-claude mcp add api-pilot -- npx -y api-pilot mcp
+claude mcp add api-pilot -- npx -y @hamzu/api-pilot mcp
 ```
 
 Check it with `/mcp` inside a session. You should see six tools.
@@ -192,7 +192,7 @@ Add this to the host's MCP config file:
   "mcpServers": {
     "api-pilot": {
       "command": "npx",
-      "args": ["-y", "api-pilot", "mcp", "--dir", "/absolute/path/to/my-project"]
+      "args": ["-y", "@hamzu/api-pilot", "mcp", "--dir", "/absolute/path/to/my-project"]
     }
   }
 }

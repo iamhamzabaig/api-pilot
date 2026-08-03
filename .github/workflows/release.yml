@@ -99,24 +99,24 @@ jobs:
         with:
           node-version: 22
 
-      - name: npx api-pilot --version
+      - name: npx @hamzu/api-pilot --version
         shell: bash
         run: |
           # The registry needs a moment after publish before the version resolves.
           sleep 30
           version="${GITHUB_REF_NAME#v}"
-          printed="$(npx -y "api-pilot@$version" --version)"
+          printed="$(npx -y "@hamzu/api-pilot@$version" --version)"
           test "$printed" = "$version" || {
             echo "npx printed '$printed', expected '$version'" >&2
             exit 1
           }
 
-      - name: npx api-pilot mcp answers tools/list
+      - name: npx @hamzu/api-pilot mcp answers tools/list
         shell: bash
         run: |
           version="${GITHUB_REF_NAME#v}"
           echo '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' \
-            | npx -y "api-pilot@$version" mcp \
+            | npx -y "@hamzu/api-pilot@$version" mcp \
             | node -e '
               let raw = "";
               process.stdin.on("data", (chunk) => { raw += chunk; });

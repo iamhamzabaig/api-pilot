@@ -487,7 +487,7 @@ builds before it tests.
 | `examples/` run in CI | `examples/quickstart`, `pnpm run example` |
 | SECURITY.md complete | written in M0; the pre-alpha notice comes out at publish |
 | Published to npm with provenance | **workflow written, never run — remote exists, `NPM_TOKEN` does not** |
-| `npx api-pilot` works clean on all three OSes | **smoke job written; it can only run after a publish** |
+| `npx @hamzu/api-pilot` works clean on all three OSes | **smoke job written; it can only run after a publish** |
 | 3 external testers complete the §19 success test | **not started** |
 | *(from M6)* verified working in Claude Code and one other host | **not done** |
 

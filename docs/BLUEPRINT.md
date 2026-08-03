@@ -287,7 +287,7 @@ Rough MVP size budget: core ≈ 3.5–4.5 kLOC, CLI ≈ 800, MCP ≈ 400. If MCP
 ## 12. Recommended Tech Stack
 
 ### 12.1 Language & runtime — **TypeScript on Node ≥ 22, ESM only**
-*Why:* the MCP SDK is first-class in TS; the OpenAPI/JSON-Schema tooling ecosystem is strongest in JS; our contributor pool (people who use AI coding tools) overwhelmingly has Node installed; `npx api-pilot` is a zero-install trial.
+*Why:* the MCP SDK is first-class in TS; the OpenAPI/JSON-Schema tooling ecosystem is strongest in JS; our contributor pool (people who use AI coding tools) overwhelmingly has Node installed; `npx @hamzu/api-pilot` is a zero-install trial.
 *Trade-off vs Go:* Go gives a true static binary and ~10 ms start vs our ~120–180 ms; Go's OpenAPI and MCP libraries are thinner and its contributor pool for this niche is smaller. *Trade-off vs Rust:* best runtime, worst iteration speed and contributor supply, unjustified for an I/O-bound tool.
 **Revisit trigger:** if N1 (200 ms) is missed after optimization, or if Windows install friction proves fatal, port the CLI shell to Go over a stable core protocol — do not rewrite speculatively.
 Node 22 chosen for stable `fetch`, `node:test`, and native single-executable applications as a future packaging path.
@@ -497,7 +497,7 @@ Six tools, thin adapter.
 **Accept:** adapter < 500 LOC; serialized tool definitions ≤ 1,500 tokens (golden-file gated); protocol conformance suite green; verified working in Claude Code and one other host; response bodies fenced as untrusted; a 500-operation spec adds **zero** tools; setup guides for 4 hosts published.
 
 ### M7 — v0.1 Release *(~4 days)*
-**Accept:** published to npm with provenance; `npx api-pilot` works clean on all three OSes; README carries a reproducible token-cost comparison; `examples/` run in CI; SECURITY.md complete; 3 external testers complete the §19 success test.
+**Accept:** published to npm with provenance; `npx @hamzu/api-pilot` works clean on all three OSes; README carries a reproducible token-cost comparison; `examples/` run in CI; SECURITY.md complete; 3 external testers complete the §19 success test.
 
 ---
 

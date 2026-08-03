@@ -19,7 +19,7 @@ Secondary constraints: the MCP protocol SDK, OpenAPI/JSON-Schema tooling maturit
 ### A. TypeScript on Node 22+, ESM only
 - `@modelcontextprotocol/sdk` is first-class and canonical in TypeScript.
 - The OpenAPI / JSON-Schema tooling ecosystem is strongest in JavaScript (`$ref` dereferencing especially — a genuinely hard problem we do not want to solve ourselves).
-- `npx api-pilot` is a zero-install trial for our exact audience.
+- `npx @hamzu/api-pilot` is a zero-install trial for our exact audience.
 - Node 22 is the floor because it gives stable `fetch`/`undici`, `node:test`, `parseArgs`, and Single Executable Applications as a future packaging path.
 - **Cost:** ~120–180 ms cold start; no true single binary; dependency-bloat pressure.
 

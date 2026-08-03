@@ -45,8 +45,8 @@ back through a digest, an inspect result, or an error message.
 Verify the workspace before wiring up a host:
 
 ```sh
-npx api-pilot env          # lists environments
-npx api-pilot search "list invoices"
+npx @hamzu/api-pilot env          # lists environments
+npx @hamzu/api-pilot search "list invoices"
 ```
 
 ---
@@ -67,7 +67,7 @@ api-pilot mcp --dir /absolute/path/to/your-project
 
 Replace `/absolute/path/to/your-project` throughout.
 
-`npx -y api-pilot` fetches the published package on demand and is the form to use.
+`npx -y @hamzu/api-pilot` fetches the published package on demand and is the form to use.
 To run a local build instead — an unreleased commit, or a clone you are working on —
 swap the command for the built entry point:
 
@@ -84,7 +84,7 @@ Project-scoped, checked into the repo as `.mcp.json`:
   "mcpServers": {
     "api-pilot": {
       "command": "npx",
-      "args": ["-y", "api-pilot", "mcp"]
+      "args": ["-y", "@hamzu/api-pilot", "mcp"]
     }
   }
 }
@@ -94,7 +94,7 @@ No `--dir` needed here: Claude Code starts servers in the project directory. Or 
 it from the command line:
 
 ```sh
-claude mcp add api-pilot -- npx -y api-pilot mcp
+claude mcp add api-pilot -- npx -y @hamzu/api-pilot mcp
 ```
 
 Check it with `/mcp` inside a session.
@@ -109,7 +109,7 @@ Check it with `/mcp` inside a session.
   "mcpServers": {
     "api-pilot": {
       "command": "npx",
-      "args": ["-y", "api-pilot", "mcp", "--dir", "/absolute/path/to/your-project"]
+      "args": ["-y", "@hamzu/api-pilot", "mcp", "--dir", "/absolute/path/to/your-project"]
     }
   }
 }
@@ -127,7 +127,7 @@ the app after editing; the tools appear under the connectors icon.
   "mcpServers": {
     "api-pilot": {
       "command": "npx",
-      "args": ["-y", "api-pilot", "mcp", "--dir", "/absolute/path/to/your-project"]
+      "args": ["-y", "@hamzu/api-pilot", "mcp", "--dir", "/absolute/path/to/your-project"]
     }
   }
 }
@@ -145,7 +145,7 @@ Then Settings → MCP, and confirm `api-pilot` is listed with six tools.
     "api-pilot": {
       "source": "custom",
       "command": "npx",
-      "args": ["-y", "api-pilot", "mcp", "--dir", "/absolute/path/to/your-project"],
+      "args": ["-y", "@hamzu/api-pilot", "mcp", "--dir", "/absolute/path/to/your-project"],
       "env": {}
     }
   }
@@ -220,7 +220,7 @@ use a `${file:...}` reference instead.
 **Verify by hand.** The server is a normal process on two pipes:
 
 ```sh
-echo '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' | npx api-pilot mcp --dir .
+echo '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' | npx @hamzu/api-pilot mcp --dir .
 ```
 
 That prints one line: six tools.
