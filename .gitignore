@@ -9,8 +9,12 @@ coverage/
 **/.apipilot/.cache/
 **/.apipilot/environments.local.yaml
 
-# Scratch specs downloaded for a local check against something real.
+# Scratch specs downloaded for a local check against something real. A private
+# API's spec carries internal hostnames and paths, so all three extensions are
+# ignored rather than only the one the committed fixtures happen to use.
 tests/fixtures/specs/local-*.yaml
+tests/fixtures/specs/local-*.yml
+tests/fixtures/specs/local-*.json
 
 # Machine-local agent permissions, not shared config.
 .claude/settings.local.json

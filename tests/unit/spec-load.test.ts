@@ -7,13 +7,19 @@ const SPECS = fileURLToPath(new URL("../fixtures/specs/", import.meta.url));
 
 describe("loading", () => {
   /**
-   * Every YAML file in tests/fixtures/specs is loaded. Dropping a real
+   * Every spec file in tests/fixtures/specs is loaded. Dropping a real
    * downloaded spec into that directory makes it part of this corpus with no
    * code change — which is how a large public spec gets validated without
    * committing megabytes or letting CI touch the network.
+   *
+   * `.json` counts, and that is not cosmetic: most vendors publish Swagger as
+   * JSON, and a corpus that silently ignored those extensions would pass while
+   * validating nothing — the worst shape a test can have.
    */
   it("loads every fixture spec without throwing", async () => {
-    const files = (await readdir(SPECS)).filter((file) => file.endsWith(".yaml"));
+    const files = (await readdir(SPECS)).filter((file) =>
+      [".yaml", ".yml", ".json"].some((extension) => file.endsWith(extension)),
+    );
     expect(files.length).toBeGreaterThanOrEqual(5);
 
     for (const file of files) {

@@ -22,8 +22,12 @@ roadmap and `docs/adr/` for the decisions that are already locked.
 
 **The next action is not code.** Everything M7 can build is built. What is left is
 creating the GitHub remote, verifying the server in two real MCP hosts, three
-external testers, and loading five real public specs — the checklist is
+external testers, and four more real public specs — the checklist is
 `docs/RELEASING.md`, and §11 below says why each one resisted automation.
+
+**The engine has now been run against a live third-party API** — a 490-operation
+ASP.NET CRM, end to end, redaction and production gate included. §12 records what
+held and the two findings it produced.
 
 ### Verification state at checkpoint
 
@@ -291,7 +295,7 @@ becomes "done".
 
 | Gap | Where it belongs |
 |---|---|
-| **No real-world spec validation.** M4's criterion "loads 5 real-world public specs" is **not met** — CI cannot touch the network and Stripe's spec is 6 MB. Five synthetic fixtures encode real failure modes instead; the ≥500-op case is generated. Closable with no code change: drop a downloaded spec into `tests/fixtures/specs/` (it is globbed; `local-*.yaml` is gitignored). See that directory's README. **Worth doing manually before v0.1 — expect it to find parser gaps.** | before M7 |
+| **Real-world spec validation: one down, four to go.** M4's criterion says five public specs. **One real spec has now been run** — 601 KB, 490 operations, OpenAPI 3.0.1 out of ASP.NET/Swashbuckle — and it loaded, indexed and ranked correctly with zero warnings, over both a local file and its live URL. It covers the two cases the synthetic fixtures cannot: generator output nobody hand-wrote, and near-500-operation scale that is real rather than generated. Four more still wanted, ideally including one 3.1 spec and one with `$ref` into sibling files. Drop them into `tests/fixtures/specs/` as `local-*` — globbed, gitignored, all three extensions. See that directory's README. | ongoing; the corpus grows for free |
 | ~~**Loading a spec by URL.**~~ **Closed in M7.** `src/core/spec/remote.ts`, behind a dynamic import so a local-only workspace still runs `search` without the HTTP stack. Protocol gate, same-host redirects only, 16 MB cap, 24-hour cache in `.apipilot/.cache/specs/`, stale-copy fallback when a refresh fails. Why it is *not* gated on the host allowlist is ADR-0003 decision 3. | done |
 | **Cold start is gated on an absolute 200 ms p95, not on a >15% regression.** A regression gate needs a committed baseline per OS, and a baseline that drifts upward one accepted commit at a time is worse than no baseline. The bench prints p50/p95 on every run so a creep from 60 ms to 190 ms is visible while still passing. | M7, if the absolute gate proves too loose |
 | **`--body` takes text only.** No `@file` shorthand, no streaming upload, no multipart. `--body-file` covers the common case; a binary body is not replayable (see §6). | when a real use case lands |
@@ -531,3 +535,53 @@ Each one needs a person, and saying which kind of person is the useful part:
    Stripe's spec is 6 MB. Download them into `tests/fixtures/specs/` — globbed,
    `local-*.yaml` gitignored — and run the suite. Expect parser gaps; that is the
    point of the exercise, not a reason to skip it.
+
+---
+
+## 12. First real-API run — 2026-08-03
+
+The engine has been driven end to end against a live third-party API, not a
+fixture server. Worth recording because it is the first evidence that is not
+self-generated, and because it produced two findings.
+
+**The spec:** a CRM on ASP.NET/Swashbuckle. 601 KB, **490 operations**, OpenAPI
+3.0.1, plain HTTP on a raw IP with a non-standard port.
+
+**What held:**
+
+- Loaded and indexed with **zero warnings**, from a local file and from its live
+  URL. The URL path fetched 601 KB, cached it under `.apipilot/.cache/specs/`, and
+  the next search used the cache without a request — `src/core/spec/remote.ts` had
+  only ever run against a loopback test server before this.
+- Search ranked correctly on queries the API can answer: "login", "register a
+  user", "update password", "invoice due", "holidays" each put the right operation
+  first. An earlier reading that the ranker had failed was wrong — the failing
+  query was "list users" against an API that has no user-list endpoint.
+- `describe` stayed compact on operations carrying no documentation at all.
+- A real authenticated `GET` returned 200, gzip decoded, 60 bytes rendered as a
+  shape plus a sample, and a handle instead of a body.
+- `env crm` printed the bearer token as `[redacted]`.
+- `PUT` against the `production`-classified environment was refused with
+  `CONFIRMATION_REQUIRED` and sent nothing.
+
+**Findings:**
+
+1. **The spec declares no `operationId` and no `summary` — 490 of 490 — and
+   nothing says so.** Ids are synthesised from method and path
+   (`get_api_City_GetCityList`), which is the right fallback, but the silence is
+   not: it is why `describe GetCityList` fails, and why search has only path
+   tokens to rank on. This is the norm for Swashbuckle output without XML docs, so
+   it will recur. **One aggregate warning per spec** — not 490 — is the fix. Left
+   undone deliberately: spec warnings ride along in every `api_search` result, so
+   adding one changes what every model sees in every session.
+2. **Two of that API's operations take `Password` as a query parameter.** Not our
+   bug, but it is the case where a request URL carries a credential, which is
+   exactly what `ResponseStore.put`'s redactor exists for. It held, because the
+   token came from a secret reference. A password passed inline on the command line
+   would not be covered — there is nothing to seed the redactor with.
+
+**Corpus effect:** the file lives at `tests/fixtures/specs/local-*.json`, so it is
+part of the load corpus on that machine and gitignored everywhere else. Getting
+there needed two fixes — the corpus globbed `*.yaml` only, so a JSON spec was
+silently skipped while the test still passed, and `.gitignore` covered only
+`local-*.yaml`, so a private API's spec was committable.
