@@ -3,11 +3,15 @@ name: Release
 # Publishing is tag-driven: push `v0.1.0` and this runs. Nothing publishes from a
 # branch push, so a merge to main can never ship a version by accident.
 #
-# Requires two things configured on the repository:
-#   - an `NPM_TOKEN` secret (automation token, publish scope)
-#   - nothing else — provenance uses the workflow's own OIDC identity, which is
-#     why `id-token: write` is here and why a local `npm publish` cannot produce
-#     the same attestation
+# Authentication is trusted publishing (OIDC) — there is no npm token, here or in
+# the repository secrets. npm mints a short-lived credential from this workflow's
+# own identity, which is why `id-token: write` is below and why a local `npm
+# publish` can produce neither the credential nor the attestation.
+#
+# It requires a trusted publisher registered on the package itself (npmjs.com →
+# @hamzu/api-pilot → Settings), naming this repository, `release.yml`, and the
+# `release` environment, exactly. Changing this file's name or the environment
+# breaks publishing until the npm side is updated to match.
 on:
   push:
     tags: ["v*"]
@@ -35,6 +39,12 @@ jobs:
           node-version: 24
           cache: pnpm
           registry-url: https://registry.npmjs.org
+
+      # Trusted publishing needs npm 11.5.1 or newer; the npm bundled with a Node
+      # image is whatever shipped with it, and an older one falls back to looking
+      # for a token that no longer exists.
+      - name: npm new enough for OIDC
+        run: npm install -g npm@latest
 
       - run: pnpm install --frozen-lockfile
 
@@ -74,13 +84,14 @@ jobs:
             exit 1
           fi
 
-      # `--provenance` attaches a signed statement of which workflow, commit and
-      # runner produced the tarball. It is the one supply-chain control that a
-      # consumer can verify without trusting us.
+      # Provenance is a signed statement of which workflow, commit and runner
+      # produced the tarball — the one supply-chain control a consumer can verify
+      # without trusting us. Trusted publishing attaches it by default, but the
+      # flag stays: it turns a silent unattested publish into a failed one.
+      # `--access public` is likewise redundant with `publishConfig` and likewise
+      # cheap, and a scoped package that lands private is a confusing failure.
       - name: Publish
         run: npm publish --provenance --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       # Proves the published artifact is installable as a CLI, on every OS the
       # package claims to support. `npx` resolves the `bin` entry, which is the

@@ -18,12 +18,23 @@ roadmap and `docs/adr/` for the decisions that are already locked.
 | M4 | Spec discovery — load, index, search, describe — **the search bet** | done, measured |
 | M5 | CLI — seven commands, `--json`, cold-start gate | done, measured |
 | M6 | MCP server (6 tools) | done, measured — one criterion open, see §6 |
-| M7 | v0.1 release | **code done; 4 human-gated items, see §11** |
+| M7 | v0.1 release | **published — `@hamzu/api-pilot@0.1.0`, 2026-08-03** |
 
-**The next action is not code.** Everything M7 can build is built. What is left is
-the `NPM_TOKEN` secret and the `release` environment on GitHub, verifying the server
-in two real MCP hosts, three external testers, and four more real public specs — the
-checklist is `docs/RELEASING.md`, and §11 below says why each one resisted
+**0.1.0 is on npm, under a scope and without provenance.** Neither was the plan.
+`api-pilot` is unregistered but unpublishable — npm's typosquat check rejects it as
+too close to the existing `apipilot`, and that check only runs at publish time, so
+the 404 we took as an all-clear proved nothing. And CI could not authenticate: with
+2FA in `auth-and-writes` mode a runner gets `EOTP` and has nobody to type the code,
+so the first release went out by hand, which cannot produce an attestation.
+
+Both are now closed for good: the package is `@hamzu/api-pilot` (scoped names skip
+the similarity check), and `release.yml` publishes over **trusted publishing
+(OIDC)** with no token anywhere — which also had to come second, because npm only
+accepts trusted-publisher config for a package that already exists. `docs/RELEASING.md`
+carries the full reasoning.
+
+**Still open, and none of it is code:** verifying the server in two real MCP hosts,
+three external testers, and four more real public specs. §11 says why each resisted
 automation.
 
 **The engine has now been run against a live third-party API** — a 490-operation
@@ -86,9 +97,12 @@ choosing only large fixtures.
 
 **Remote is live:** `https://github.com/iamhamzabaig/api-pilot.git`. That unblocks
 provenance — the attestation comes from the publishing workflow's OIDC identity, so
-it could never have been produced from a laptop. What is still missing before a
-release is the `NPM_TOKEN` secret and the `release` environment; both are in
-`docs/RELEASING.md` §"Once, before the first release".
+it could never have been produced from a laptop, which is exactly why 0.1.0 has
+none. There is no `NPM_TOKEN`, by design: authentication is trusted publishing, and
+the trusted publisher registered on npm names this repository, `release.yml`, and
+the `release` environment. Renaming that file or that environment breaks publishing
+until npm is updated to match. `docs/RELEASING.md` §"Once, before the first release"
+has the rest.
 
 All three branches are pushed. `main` carries M0–M5:
 
@@ -486,8 +500,8 @@ builds before it tests.
 | README carries a reproducible token-cost comparison | `pnpm run cost`, staleness-gated in CI |
 | `examples/` run in CI | `examples/quickstart`, `pnpm run example` |
 | SECURITY.md complete | written in M0; the pre-alpha notice comes out at publish |
-| Published to npm with provenance | **workflow written, never run — remote exists, `NPM_TOKEN` does not** |
-| `npx @hamzu/api-pilot` works clean on all three OSes | **smoke job written; it can only run after a publish** |
+| Published to npm with provenance | **half.** Published — `@hamzu/api-pilot@0.1.0`. No provenance: the first publish had to be manual, and attestation needs the workflow's OIDC identity. 0.1.1 onward gets it |
+| `npx @hamzu/api-pilot` works clean on all three OSes | **verified locally on Windows only** — pack, global install, `--version`, `tools/list`. The three-OS smoke job runs on the next tag |
 | 3 external testers complete the §19 success test | **not started** |
 | *(from M6)* verified working in Claude Code and one other host | **not done** |
 
