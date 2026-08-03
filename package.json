@@ -1,7 +1,7 @@
 {
   "name": "api-pilot",
   "version": "0.0.0",
-  "description": "AI-native API execution engine for coding agents \u2014 discover, execute, and debug HTTP APIs from the terminal without blowing up your context window.",
+  "description": "AI-native API execution engine for coding agents — discover, execute, and debug HTTP APIs from the terminal without blowing up your context window.",
   "keywords": [
     "api",
     "http",
@@ -46,11 +46,15 @@
     "cost": "node scripts/token-cost.mjs",
     "cost:check": "node scripts/token-cost.mjs --check",
     "example": "node examples/quickstart/verify.mjs",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "changeset": "changeset",
+    "release:version": "changeset version",
+    "prepublishOnly": "pnpm run build"
   },
   "packageManager": "pnpm@11.18.0",
   "devDependencies": {
     "@biomejs/biome": "^2.3.14",
+    "@changesets/cli": "^2.31.1",
     "@types/node": "^22.10.0",
     "@vitest/coverage-v8": "^3.2.7",
     "typescript": "^5.7.0",

@@ -28,9 +28,21 @@ pnpm run check      # biome lint + format (use `pnpm run format` to autofix)
 pnpm run typecheck
 pnpm test
 pnpm run build
+pnpm run example    # the documented commands, against a local service
 ```
 
-CI runs all four across Linux, macOS, and Windows on Node 22 and 24. There is no warnings-only mode.
+CI runs all of it across Linux, macOS, and Windows on Node 22 and 24. There is no warnings-only mode. It also re-runs the suite with egress blocked, because "no test reaches the internet" is meant to be checked rather than asserted.
+
+Two generated artifacts are staleness-gated, so re-run them if you touched what they read:
+
+```sh
+pnpm run docs       # docs/cli.md, from the CLI's own --help
+pnpm run cost       # the token-cost table in README.md
+```
+
+### Changesets
+
+If your change alters anything a user or a model can observe — the public API in `src/index.ts`, a CLI flag, an MCP tool definition, an output format, or a bug's behaviour — run `pnpm changeset` and commit the file it writes. Tests, comments, refactors and docs do not need one. See [`.changeset/README.md`](.changeset/README.md).
 
 ## Standards worth repeating
 

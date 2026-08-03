@@ -1,0 +1,39 @@
+name: CodeQL
+
+# The tool handles credentials and executes model-chosen HTTP requests, so the
+# classes CodeQL is good at — injection into a path, an unvalidated URL reaching
+# a sink, a regex that backtracks — are exactly the ones that matter here.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    # Weekly, so a newly published query finds this repo without waiting for a
+    # commit. Monday morning UTC.
+    - cron: "17 6 * * 1"
+
+permissions:
+  contents: read
+
+jobs:
+  analyze:
+    name: analyze
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      actions: read
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: github/codeql-action/init@v3
+        with:
+          languages: javascript-typescript
+          # security-extended over the default: the default suite optimises for
+          # signal-to-noise on a large codebase, and this one is small enough to
+          # read every finding.
+          queries: security-extended
+
+      - uses: github/codeql-action/analyze@v3

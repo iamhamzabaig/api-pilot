@@ -1,0 +1,49 @@
+name: Feature request
+description: Something API Pilot should do and does not
+labels: ["enhancement"]
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Read **[§8 of the blueprint](../blob/main/docs/BLUEPRINT.md#8-out-of-scope)**
+        first. The out-of-scope list is a contract, not a backlog — several
+        reasonable-sounding features are deliberately excluded, and knowing which
+        saves us both the round trip.
+
+        A **seventh MCP tool** needs an ADR naming what it displaces
+        ([ADR-0002](../blob/main/docs/adr/0002-fixed-mcp-tool-surface.md)). The
+        fixed surface is the product.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What are you trying to do
+      description: >
+        The task, not the feature. "I need to upload a file to a multipart
+        endpoint" is actionable; "add multipart support" already assumes an answer.
+    validations:
+      required: true
+
+  - type: textarea
+    id: workaround
+    attributes:
+      label: What you do today instead
+      description: Including "drop back to curl", which is a real answer and useful to know.
+    validations:
+      required: true
+
+  - type: textarea
+    id: shape
+    attributes:
+      label: What it might look like
+      description: A flag, a tool argument, a config key — a guess is fine.
+
+  - type: checkboxes
+    id: cost
+    attributes:
+      label: Cost
+      options:
+        - label: This needs a new production dependency (currently 2, capped at 12)
+        - label: This adds tokens to the MCP tool surface (currently ~820, capped at 1,500)
+        - label: I do not think it needs either

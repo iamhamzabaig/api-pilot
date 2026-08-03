@@ -1,0 +1,129 @@
+name: Release
+
+# Publishing is tag-driven: push `v0.1.0` and this runs. Nothing publishes from a
+# branch push, so a merge to main can never ship a version by accident.
+#
+# Requires two things configured on the repository:
+#   - an `NPM_TOKEN` secret (automation token, publish scope)
+#   - nothing else — provenance uses the workflow's own OIDC identity, which is
+#     why `id-token: write` is here and why a local `npm publish` cannot produce
+#     the same attestation
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    name: publish to npm
+    runs-on: ubuntu-latest
+    environment: release
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+          registry-url: https://registry.npmjs.org
+
+      - run: pnpm install --frozen-lockfile
+
+      # The full gate, again. CI already ran it on the commit, but a tag can
+      # point anywhere, and "the tests passed on some ancestor" is not the claim
+      # a published artifact makes.
+      - name: Lint and format
+        run: pnpm run check
+
+      - name: Typecheck
+        run: pnpm run typecheck
+
+      - name: Build
+        run: pnpm run build
+
+      - name: Test
+        run: pnpm run test:coverage
+
+      - name: Cold start budget (NFR N1)
+        run: pnpm run bench
+
+      - name: Docs and cost table are current
+        run: pnpm run docs:check && pnpm run cost:check
+
+      - name: examples/quickstart works end to end
+        run: pnpm run example
+
+      # The tag has to name the version being published, or `npm install
+      # api-pilot@0.1.0` and `git checkout v0.1.0` describe different code.
+      - name: Tag matches package.json
+        if: github.ref_type == 'tag'
+        run: |
+          tagged="${GITHUB_REF_NAME#v}"
+          packaged="$(node -p "require('./package.json').version")"
+          if [ "$tagged" != "$packaged" ]; then
+            echo "tag v$tagged does not match package.json $packaged" >&2
+            exit 1
+          fi
+
+      # `--provenance` attaches a signed statement of which workflow, commit and
+      # runner produced the tarball. It is the one supply-chain control that a
+      # consumer can verify without trusting us.
+      - name: Publish
+        run: npm publish --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      # Proves the published artifact is installable as a CLI, on every OS the
+      # package claims to support. `npx` resolves the `bin` entry, which is the
+      # path a user actually takes and the one a bad `files` list breaks.
+  smoke:
+    name: npx on ${{ matrix.os }}
+    needs: publish
+    if: github.ref_type == 'tag'
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: npx api-pilot --version
+        shell: bash
+        run: |
+          # The registry needs a moment after publish before the version resolves.
+          sleep 30
+          version="${GITHUB_REF_NAME#v}"
+          printed="$(npx -y "api-pilot@$version" --version)"
+          test "$printed" = "$version" || {
+            echo "npx printed '$printed', expected '$version'" >&2
+            exit 1
+          }
+
+      - name: npx api-pilot mcp answers tools/list
+        shell: bash
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          echo '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' \
+            | npx -y "api-pilot@$version" mcp \
+            | node -e '
+              let raw = "";
+              process.stdin.on("data", (chunk) => { raw += chunk; });
+              process.stdin.on("end", () => {
+                const { result } = JSON.parse(raw);
+                if (result.tools.length !== 6) {
+                  throw new Error(`expected 6 tools, got ${result.tools.length}`);
+                }
+              });
+            '

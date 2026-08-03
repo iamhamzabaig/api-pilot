@@ -148,10 +148,15 @@ pnpm typecheck        # tsc --noEmit
 pnpm run build        # tsc -> dist/
 pnpm run bench        # cold-start budget, < 200 ms p95 (NFR N1)
 pnpm run docs         # regenerate docs/cli.md from the CLI's own --help
+pnpm run cost         # regenerate the token-cost table above
+pnpm run example      # every documented command, against a local service
 ```
 
 `pnpm run bench` runs under its own config because it is timing-sensitive:
 sharing cores with the main suite's workers roughly triples the measurement.
+
+Releases are tag-driven and published from CI with provenance — see
+[docs/RELEASING.md](docs/RELEASING.md).
 
 ## Contributing
 

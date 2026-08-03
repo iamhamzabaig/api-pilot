@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/iamhamzabaig/api-pilot/security/advisories/new
+    about: >
+      Credential exposure, an allowlist or confirmation-gate bypass, injection
+      through spec or response parsing — report these privately, never as a
+      public issue. Scope is in SECURITY.md.
+  - name: A question about how something works
+    url: https://github.com/iamhamzabaig/api-pilot/discussions
+    about: Discussions, not issues. The CLI reference and the setup guide may answer it first.

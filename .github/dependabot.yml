@@ -1,0 +1,27 @@
+version: 2
+
+# Two production dependencies against a cap of twelve (NFR N10), so the point of
+# this is patching the dev toolchain and the Actions we run, not managing a tree.
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    # One PR for the dev toolchain: biome, typescript and vitest moving together
+    # is one review, and separately they are five that each need a full CI run.
+    groups:
+      dev-toolchain:
+        dependency-type: development
+        update-types: ["minor", "patch"]
+    # A production dependency is a decision, not a chore — `yaml` and `zod` are
+    # the entire runtime surface, and a major there gets read by a human.
+    ignore:
+      - dependency-name: "*"
+        dependency-type: production
+        update-types: ["version-update:semver-major"]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
