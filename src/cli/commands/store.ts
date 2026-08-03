@@ -3,6 +3,7 @@ import { formatBytes } from "../../core/body.js";
 import { ApiPilotError } from "../../core/errors.js";
 import { inspect as inspectResponse } from "../../core/inspect/inspect.js";
 import { ResponseStore } from "../../core/store/response-store.js";
+import { historyView } from "../../core/views.js";
 import { Workspace } from "../../core/workspace/workspace.js";
 import { parseNumber } from "../args.js";
 import { emit, pad, pluralise } from "../output.js";
@@ -72,37 +73,22 @@ export async function history(argv: readonly string[]): Promise<void> {
     ...(values.url === undefined ? {} : { urlContains: values.url }),
   });
 
-  emit(
-    values.json === true,
-    {
-      runs: runs.map((run) => ({
-        handle: run.handle,
-        createdAt: run.createdAt,
-        method: run.request.method,
-        url: run.request.url,
-        status: run.status,
-        durationMs: run.durationMs,
-        bodyBytes: run.bodyBytes,
-        replayable: run.intent !== undefined && run.intent.bodyOmitted !== true,
-      })),
-    },
-    () => {
-      if (runs.length === 0) return "No runs recorded yet.";
-      const handleWidth = Math.max(...runs.map((r) => r.handle.length)) + 2;
-      return runs
-        .map((run) =>
-          [
-            pad(run.handle, handleWidth),
-            pad(String(run.status), 5),
-            pad(run.request.method, 7),
-            pad(`${Math.round(run.durationMs)} ms`, 9),
-            pad(formatBytes(run.bodyBytes), 10),
-            run.request.url,
-          ].join(""),
-        )
-        .join("\n");
-    },
-  );
+  emit(values.json === true, { runs: historyView(runs) }, () => {
+    if (runs.length === 0) return "No runs recorded yet.";
+    const handleWidth = Math.max(...runs.map((r) => r.handle.length)) + 2;
+    return runs
+      .map((run) =>
+        [
+          pad(run.handle, handleWidth),
+          pad(String(run.status), 5),
+          pad(run.request.method, 7),
+          pad(`${Math.round(run.durationMs)} ms`, 9),
+          pad(formatBytes(run.bodyBytes), 10),
+          run.request.url,
+        ].join(""),
+      )
+      .join("\n");
+  });
 }
 
 export async function inspect(argv: readonly string[]): Promise<void> {

@@ -21,7 +21,7 @@ const run = promisify(execFile);
 
 const CLI = join(process.cwd(), "dist", "cli", "index.js");
 const TARGET = join(process.cwd(), "docs", "cli.md");
-const COMMANDS = ["search", "describe", "call", "replay", "inspect", "history", "env"];
+const COMMANDS = ["search", "describe", "call", "replay", "inspect", "history", "env", "mcp"];
 
 async function help(args) {
   const { stdout } = await run(process.execPath, [CLI, ...args]);
@@ -34,7 +34,8 @@ async function generate() {
     "",
     "# CLI reference",
     "",
-    "Every command accepts `--json` for machine-readable output. Errors go to",
+    "Every command except `mcp` accepts `--json` for machine-readable output.",
+    "Errors go to",
     "stderr and set a non-zero exit code; with `--json` they are emitted as a",
     "JSON object with `code`, `message` and `hint`.",
     "",

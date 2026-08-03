@@ -55,3 +55,34 @@ jobs:
 
       - name: Smoke test the built CLI
         run: node dist/cli/index.js --version
+
+      - name: Smoke test the MCP server
+        shell: bash
+        run: |
+          echo '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' \
+            | node dist/cli/index.js mcp \
+            | node -e '
+              let raw = "";
+              process.stdin.on("data", (chunk) => { raw += chunk; });
+              process.stdin.on("end", () => {
+                const { result } = JSON.parse(raw);
+                if (result.tools.length !== 6) {
+                  throw new Error(`expected 6 tools, got ${result.tools.length}`);
+                }
+                console.log(result.tools.map((t) => t.name).join(" "));
+              });
+            '
+
+      # NFR N7: no test may reach the public internet. The suite is meant to be
+      # loopback-only, and the way to know that is to take the internet away and
+      # see whether it still passes. The namespace contains only this process
+      # tree, so the runner's own connection to GitHub is untouched — which is
+      # why this is `unshare` rather than an iptables rule.
+      #
+      # Last in the job: it runs as root inside the namespace and can leave
+      # root-owned files in node_modules behind it.
+      - name: Test with egress blocked (NFR N7)
+        if: runner.os == 'Linux'
+        run: |
+          sudo -E env "PATH=$PATH" unshare --net --fork \
+            sh -c 'ip link set lo up && exec pnpm test'

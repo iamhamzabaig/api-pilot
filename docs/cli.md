@@ -2,7 +2,8 @@
 
 # CLI reference
 
-Every command accepts `--json` for machine-readable output. Errors go to
+Every command except `mcp` accepts `--json` for machine-readable output.
+Errors go to
 stderr and set a non-zero exit code; with `--json` they are emitted as a
 JSON object with `code`, `message` and `hint`.
 
@@ -22,12 +23,13 @@ Commands:
   inspect <handle>      query a stored response: path, byte range, or headers
   history               list recorded runs, newest first
   env                   list environments, or show one resolved
+  mcp                   run the MCP server over stdio
 
 Options:
   -h, --help            show this help, or a command's help
   -v, --version         print the version
 
-Every command accepts --json for machine-readable output.
+Every command except `mcp` accepts --json for machine-readable output.
 Run `api-pilot <command> --help` for a command's own options.
 ```
 
@@ -163,4 +165,22 @@ Options:
 
 Secret values are never printed. A variable resolved from a `${env:...}` or
 `${file:...}` reference is shown as [redacted].
+```
+
+## api-pilot mcp
+
+```
+Usage:
+  api-pilot mcp [options]
+
+Runs the MCP server over stdio. Hosts (Claude Code, Claude Desktop, Cursor,
+Zed) start this themselves — you rarely run it by hand.
+
+Options:
+      --dir <path>   workspace directory to search upward from (default: cwd)
+  -h, --help         show this help
+
+Six tools are exposed: api_search, api_describe, api_call, api_inspect,
+api_history, api_env. The count does not change with the size or number of
+loaded specs. See docs/guides/mcp-setup.md for host configuration.
 ```

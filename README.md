@@ -2,10 +2,10 @@
 
 **AI-native API execution engine.** Lets Claude Code, Cursor, Codex, and any MCP-compatible assistant discover, execute, and debug HTTP APIs from your terminal — without flooding the context window and without ever showing the model your credentials.
 
-> **Status: pre-alpha (v0.0.0).** The engine and the CLI work; the MCP server does not exist yet.
-> Milestones M0–M5 are complete — execution, response digesting, environments and redaction,
-> spec search, and the seven CLI commands. M6 (the MCP server) and M7 (release) remain, so the
-> six tools described below are a design, not yet software. See the [roadmap](docs/BLUEPRINT.md#19-roadmap).
+> **Status: pre-alpha (v0.0.0), not yet published to npm.** Milestones M0–M6 are complete —
+> execution, response digesting, environments and redaction, spec search, eight CLI commands,
+> and the MCP server. M7 (release) remains, so you run it from a clone rather than `npx`.
+> See the [roadmap](docs/BLUEPRINT.md#19-roadmap).
 
 ## Why not just `curl`?
 
@@ -22,11 +22,32 @@
 
 Generating one MCP tool per OpenAPI operation is the common approach. On a 500-operation API it produces 500 tool definitions and burns 80 KB of context before the model does anything.
 
-API Pilot exposes **six tools, always** — `api_search`, `api_describe`, `api_call`, `api_inspect`, `api_history`, `api_env` — and treats the spec as searchable data instead. Loading a 500-operation spec adds zero tools. See [ADR-0002](docs/adr/0002-fixed-mcp-tool-surface.md).
+API Pilot exposes **six tools, always** — `api_search`, `api_describe`, `api_call`, `api_inspect`, `api_history`, `api_env` — and treats the spec as searchable data instead. Loading a 1,000-operation spec adds zero tools; the whole surface serializes to ~820 tokens, and a golden test fails if that moves. See [ADR-0002](docs/adr/0002-fixed-mcp-tool-surface.md).
+
+## The MCP server
+
+```json
+{
+  "mcpServers": {
+    "api-pilot": { "command": "npx", "args": ["-y", "api-pilot", "mcp"] }
+  }
+}
+```
+
+Setup for Claude Code, Claude Desktop, Cursor and Zed: **[docs/guides/mcp-setup.md](docs/guides/mcp-setup.md)**.
+
+The model searches, describes, then calls. `api_call` returns a digest and a handle,
+never a body; response text arrives fenced as `<untrusted-api-response>`; a mutating
+call against a `production` environment is refused until the model passes
+`confirm: true`, which the host shows you before it runs.
+
+The transport is ~130 lines of JSON-RPC over stdio rather than the MCP SDK — see
+[ADR-0004](docs/adr/0004-hand-rolled-mcp-stdio-transport.md) for what that buys and
+what it costs. Production dependencies: **two**.
 
 ## The CLI
 
-Seven commands over the engine, each with `--json`. Full reference: **[docs/cli.md](docs/cli.md)** (generated from the CLI itself).
+Eight commands over the engine, each with `--json` except `mcp`. Full reference: **[docs/cli.md](docs/cli.md)** (generated from the CLI itself).
 
 ```sh
 api-pilot search cancel a subscription   # find an operation across your specs
@@ -36,6 +57,7 @@ api-pilot inspect r_m8x2k9qp --path data[0].id
 api-pilot history                        # every run, newest first
 api-pilot replay r_m8x2k9qp --env staging
 api-pilot env local                      # resolved config; secrets stay [redacted]
+api-pilot mcp                            # the MCP server, on stdio
 ```
 
 A response is stored whole and summarised into a budgeted digest, so a 1 MB
@@ -69,6 +91,8 @@ environments:
 - **[Architecture blueprint](docs/BLUEPRINT.md)** — vision, competitive analysis, requirements, module breakdown, roadmap, milestones
 - **[ADR-0001](docs/adr/0001-language-and-stack.md)** — TypeScript on Node 22+, and the explicit trigger for revisiting it
 - **[ADR-0002](docs/adr/0002-fixed-mcp-tool-surface.md)** — the fixed six-tool surface, and the risk it takes on
+- **[ADR-0003](docs/adr/0003-lazy-ref-resolution-and-in-house-search.md)** — lazy `$ref` resolution and an in-house search ranker
+- **[ADR-0004](docs/adr/0004-hand-rolled-mcp-stdio-transport.md)** — a hand-rolled stdio transport instead of the MCP SDK
 
 Everything lives in plain files in your repo: OpenAPI specs, `.http` requests, and a YAML environment file that holds secret *references*, never secret values. No account, no cloud, no telemetry.
 

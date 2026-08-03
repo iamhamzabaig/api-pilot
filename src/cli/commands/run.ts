@@ -3,6 +3,7 @@ import { parseArgs } from "node:util";
 import { ApiPilotError } from "../../core/errors.js";
 import type { RequestBody } from "../../core/request/types.js";
 import { type RunResult, replayRun, runRequest } from "../../core/run/run.js";
+import { runView } from "../../core/views.js";
 import { Workspace } from "../../core/workspace/workspace.js";
 import { parseNumber } from "../args.js";
 import { emit } from "../output.js";
@@ -146,24 +147,7 @@ export async function replay(argv: readonly string[]): Promise<void> {
 }
 
 function render(result: RunResult, asJson: boolean): void {
-  emit(
-    asJson,
-    {
-      handle: result.meta.handle,
-      environment: result.environmentName,
-      status: result.meta.status,
-      statusText: result.meta.statusText,
-      url: result.meta.request.url,
-      method: result.meta.request.method,
-      durationMs: result.meta.durationMs,
-      attempts: result.meta.attempts,
-      bodyBytes: result.meta.bodyBytes,
-      bodyTruncated: result.meta.bodyTruncated,
-      redirects: result.meta.redirects,
-      digest: result.digest.text,
-    },
-    () => result.digest.text,
-  );
+  emit(asJson, { ...runView(result), digest: result.digest.text }, () => result.digest.text);
 }
 
 /** `-H "Name: value"`, the curl spelling, because that is what fingers already type. */

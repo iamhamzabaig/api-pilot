@@ -1,4 +1,4 @@
-# Checkpoint — 2026-08-01
+# Checkpoint — 2026-08-03
 
 Resume point for API Pilot. Read this first, then `docs/BLUEPRINT.md` §19–20 for the
 roadmap and `docs/adr/` for the decisions that are already locked.
@@ -7,7 +7,7 @@ roadmap and `docs/adr/` for the decisions that are already locked.
 
 ## 1. Where things stand
 
-**Milestones M0–M5 complete. M6–M7 remain.**
+**Milestones M0–M6 complete. M7 remains.**
 
 | | Milestone | State |
 |---|---|---|
@@ -17,25 +17,35 @@ roadmap and `docs/adr/` for the decisions that are already locked.
 | M3 | Environments, secrets, redaction, policy gate, auth | done, canary suite green |
 | M4 | Spec discovery — load, index, search, describe — **the search bet** | done, measured |
 | M5 | CLI — seven commands, `--json`, cold-start gate | done, measured |
-| M6 | MCP server (6 tools) | **next** |
-| M7 | v0.1 release | not started |
+| M6 | MCP server (6 tools) | done, measured — one criterion open, see §6 |
+| M7 | v0.1 release | **next** |
 
 ### Verification state at checkpoint
 
 All gates green on Windows / Node 24.18:
 
 ```
-pnpm run check          biome ci .  →  61 files, 0 errors, 0 warnings
+pnpm run check          biome ci .  →  68 files, 0 errors, 0 warnings
 pnpm run typecheck      tsc --noEmit → clean
 pnpm run build          tsc -p tsconfig.build.json → dist/
-pnpm run test:coverage  239 passed (19 files); 93.5% stmts, 88.0% branches
-pnpm run bench          cold start p95 63.9 ms (budget 200 ms)
+pnpm run test:coverage  269 passed (21 files); 93.7% stmts, 88.0% branches
+pnpm run bench          cold start p95 69–124 ms (budget 200 ms) — see the note below
 pnpm run docs:check     docs/cli.md up to date
 node dist/cli/index.js --version → 0.0.0
+echo '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' | node dist/cli/index.js mcp → 6 tools
 ```
 
 Build runs **before** test in CI now: the cold-start bench and the docs
 staleness check both measure `dist/`, and would skip silently otherwise.
+
+**The bench still measures the machine as much as the tool.** Four consecutive runs
+during M6 read p95 69, 117, 124 and **681** ms — the 681 ms run was immediately
+after a coverage run and would have failed the 200 ms gate. Nothing on the
+`--version` path changed in M6 (`tests/unit/cli-structure.test.ts` proves the import
+graph is unchanged), so a red bench on a loaded machine is noise: re-run it idle
+before believing it. Isolating it under its own config fixed the systematic case in
+M5, not the transient one. If CI flakes on this, that is the trigger for the
+regression-gate rework already noted in §7.
 
 ### Both product bets are measured, not asserted
 
@@ -43,20 +53,23 @@ staleness check both measure `dist/`, and would skip silently otherwise.
 |---|---|
 | A 1 MB JSON response fits a 2 KB digest | 1,051,814 B → **373 B** (0.035%) |
 | A 1,000-operation spec stays interactive | index **24 ms**, search **0.44 ms** |
-| A 1,000-operation spec adds zero MCP tools | 6 tools, unchanged |
-| The CLI starts fast enough to replace `curl` (N1) | p95 **63.9 ms**, budget 200 ms |
+| A 1,000-operation spec adds zero MCP tools | 6 tools, byte-identical serialization |
+| The whole tool surface fits a context budget (N3) | **~822 tokens**, budget 1,500 |
+| The CLI starts fast enough to replace `curl` (N1) | p95 **69.1 ms**, budget 200 ms |
 
 If either bet had failed, ADR-0002 was wrong and one-tool-per-operation was the
-better design. Neither did. **Nothing structurally risky is left** — M6–M7 are
-assembly.
+better design. Neither did. **Nothing structurally risky is left** — M7 is
+release engineering.
 
 ---
 
 ## 2. Git state
 
-Two commits on `main`, no remote configured:
+Three commits on `main`, no remote configured. **M6 is uncommitted in the working
+tree** at the time of writing:
 
 ```
+84f0401 docs: update checkpoint and README for M5
 440d3e5 feat(cli): M5 — seven commands over the engine
 461b93d feat: project foundations and core engine (M0-M4)
 ```
@@ -100,6 +113,7 @@ without reading the reasoning first:
 | 0001 | TypeScript on Node 22+, ESM only. Contains an **explicit revisit trigger** for a Go port so nobody rewrites on vibes. |
 | 0002 | **Fixed six-tool MCP surface.** `api_search`, `api_describe`, `api_call`, `api_inspect`, `api_history`, `api_env`. A seventh tool requires a new ADR naming what it displaces. |
 | 0003 | Lazy `$ref` resolution instead of a dereferencing library; in-house search ranker. Amends BLUEPRINT §12.3. |
+| 0004 | **Hand-rolled JSON-RPC over stdio**, not `@modelcontextprotocol/sdk`. Amends BLUEPRINT §12.6. stdio only; a remote transport revisits this. |
 
 Two open questions from BLUEPRINT §21 were **resolved by the user on 2026-07-31**:
 
@@ -129,8 +143,20 @@ These have silent failure modes. Each has a test that is the real specification.
 3. **No unbounded body read anywhere.** `src/core/inspect/inspect.ts` has no
    "give me everything" mode by design.
 
-4. **The MCP tool surface stays at six.** Enforced socially by ADR-0002 today;
-   M6 adds the golden-file token-budget test (≤ 1,500 tokens, NFR N3).
+4. **The MCP tool surface stays at six, inside 1,500 tokens.**
+   `tests/golden/mcp-tools.test.ts` snapshots the serialized definitions, asserts
+   the six names of ADR-0002, and asserts the serialization is byte-identical
+   after a 1,000-operation spec is indexed. A diff there is a change to what
+   every model sees in every session.
+
+9. **stdout under `api-pilot mcp` carries JSON-RPC frames and nothing else.**
+   One stray `console.log` anywhere below `runMcpServer` corrupts the stream and
+   the host disconnects. Diagnostics go to stderr.
+
+10. **A response body cannot escape its fence.** `fence()` escapes both tags
+    before wrapping, so a body containing `</untrusted-api-response>` cannot
+    continue outside the marked region. Tested in
+    `tests/integration/mcp.test.ts`.
 
 5. **Search ranking is tuned, not proven.** The constants in
    `src/core/spec/search.ts` (`SATURATION`, `DRIFT_PENALTY`, intent bonuses) are
@@ -153,36 +179,55 @@ These have silent failure modes. Each has a test that is the real specification.
 
 ---
 
-## 6. Next milestone: M6 — MCP server
+## 6. M6 as built, and what M7 inherits
 
-From BLUEPRINT §20. The six tools of ADR-0002: `api_search`, `api_describe`,
-`api_call`, `api_inspect`, `api_history`, `api_env`.
+**Acceptance criteria from BLUEPRINT §20:**
 
-**Acceptance criteria:**
-- All six tools, and **no seventh** without a new ADR naming what it displaces.
-- Golden-file token-budget test: the whole tool surface ≤ 1,500 tokens (NFR N3).
-- Egress-blocked CI job (NFR N7).
+| Criterion | State |
+|---|---|
+| Adapter < 500 LOC | 488 code lines across `src/mcp/` + `src/cli/commands/mcp.ts` |
+| Serialized tool definitions ≤ 1,500 tokens, golden-file gated | ~822, `tests/golden/mcp-tools.test.ts` |
+| Protocol conformance suite green | 26 cases, `tests/integration/mcp.test.ts` |
+| Response bodies fenced as untrusted | `fence()`, both tags escaped |
+| A 500-operation spec adds zero tools | asserted at 1,000 operations |
+| Setup guides for 4 hosts | `docs/guides/mcp-setup.md` |
+| **Verified working in Claude Code and one other host** | **not done — needs a human at a host** |
 
-**Notes for whoever picks this up:**
-- **The adapter should be thin.** `core/run` already does resolve → prepare →
-  execute → store → digest, and the CLI's `call`/`replay` are ~30 lines each on
-  top of it. `api_call` is the same call with a different argument shape. If the
-  MCP layer starts growing logic, that logic belongs in core where the CLI gets
-  it too.
-- `confirm: true` is already implemented and enforced (`policy.ts`); the host
-  approval UI is the other half of Q3 and is the adapter's job.
-- Read `src/cli/commands/*.ts` before writing the tool handlers — the argument
-  validation, the `--json` payload shapes, and the error `code`/`message`/`hint`
-  rendering are all directly reusable as tool result shapes.
+That last one cannot be closed from a test run. It is the first thing to do in M7,
+and it is the criterion most likely to find something: the fixture that only a real
+host produces is an odd `initialize` payload or a working directory you did not
+expect.
 
-### What M5 decided that M6 inherits
+**Decisions M6 made:**
+
+- **The transport is ours** (ADR-0004). `src/mcp/protocol.ts` is JSON-RPC framing
+  over a `Readable`/`Writable` pair, which is also why the conformance suite drives
+  real streams rather than calling handlers.
+- **`src/core/views.ts` is new.** The `--json` payloads and the MCP tool results
+  were the same objects written twice, which is exactly the condition BLUEPRINT §11
+  says means the core API is wrong — the adapter came in at 543 LOC, over its 500
+  budget, and every line over was a copy. Both adapters now project through the
+  same functions. Add a field there, not in one adapter.
+- **Errors that are the model's problem come back as results**, with `isError` and
+  a `{code, message, hint}` payload. Errors that are the *host's* problem — unknown
+  method, unknown tool, malformed frame — are JSON-RPC errors. A model that asks
+  for a blocked host should read why and try another; it should not see a transport
+  failure.
+- **`api_history` takes `action: "list" | "replay"`.** Inferring replay from the
+  presence of a handle would make a filter argument fire a request.
+- **The workspace is re-read on every tool call.** No cached `SpecIndex`: indexing
+  1,000 operations costs 24 ms, and a stale index across a long session is worse
+  than paying that.
+
+### What M5 decided that M6 kept
 
 - **There is no `src/core/history/`,** despite BLUEPRINT §11 listing one. A run
   *is* a metadata record, so the run log is `ResponseStore.list()`. Handles are
   time-prefixed base36, so a limited query reads only the records it returns
   rather than scanning the store.
-- **`core/run/run.ts` is new** and is the single end-to-end request path.
-  `api_call` must use it rather than re-assembling the sequence.
+- **`core/run/run.ts` is the single end-to-end request path.** `api_call` and
+  `api_history action=replay` both land there, so the policy gate, the redactor and
+  the store see the same sequence whichever adapter called.
 - **Replay stores the pre-interpolation intent**, not the resolved request, so
   replaying into another environment resolves that environment's variables and
   credentials. The intent lives inside the metadata record, which puts it inside
@@ -207,15 +252,20 @@ becomes "done".
 | Gap | Where it belongs |
 |---|---|
 | **No real-world spec validation.** M4's criterion "loads 5 real-world public specs" is **not met** — CI cannot touch the network and Stripe's spec is 6 MB. Five synthetic fixtures encode real failure modes instead; the ≥500-op case is generated. Closable with no code change: drop a downloaded spec into `tests/fixtures/specs/` (it is globbed; `local-*.yaml` is gitignored). See that directory's README. **Worth doing manually before v0.1 — expect it to find parser gaps.** | before M7 |
-| **Loading a spec by URL.** BLUEPRINT §6.1 tags it MVP. Fetching makes loading an egress event and needs the policy gate wired in. | M6 |
+| **Loading a spec by URL.** BLUEPRINT §6.1 tags it MVP; it was pencilled in for M6 and **was not built**. It is not part of the MCP adapter — it belongs in `spec/document.ts`, and it turns loading into an egress event that has to go through the policy gate and needs a cache under `.apipilot/.cache/specs/`. Doing it inside M6 would have meant a network path landing in the same commit as a new protocol surface. | M7 |
 | **Cold start is gated on an absolute 200 ms p95, not on a >15% regression.** A regression gate needs a committed baseline per OS, and a baseline that drifts upward one accepted commit at a time is worse than no baseline. The bench prints p50/p95 on every run so a creep from 60 ms to 190 ms is visible while still passing. | M7, if the absolute gate proves too loose |
 | **`--body` takes text only.** No `@file` shorthand, no streaming upload, no multipart. `--body-file` covers the common case; a binary body is not replayable (see §6). | when a real use case lands |
-| Egress-blocked CI job (NFR N7) | M6 |
+| **`api_inspect` output does not pass a redactor**, matching the CLI's `inspect`. Both read a stored run, and a stored run does not record which environment produced it, so there is no redactor to seed. A credential a service echoes into its own response body is scrubbed from the *digest* (which is built while the environment is still resolved) but not from a later inspect. Closing it means recording the environment name in the metadata record. | M7 — it is the one hole left in invariant 1 |
+| **MCP is stdio only.** No HTTP/SSE transport; that is the case where ADR-0004 says to take the SDK instead. | v1, demand-gated |
 | CodeQL, Dependabot/Renovate, Changesets, issue/PR templates | M7 |
 | `.apipilot/` example workspace under `examples/`, executed in CI | M7 |
 
 Closed in M5: the run log, the coverage gate (85% on `src/core`), the
 cold-start benchmark, and docs generated from source with a staleness check.
+
+Closed in M6: the MCP server, the tool-surface token gate, and the egress-blocked
+CI job — the suite re-runs inside a network namespace with only loopback up, so
+"no test reaches the internet" (NFR N7) is checked rather than asserted.
 
 ---
 
@@ -233,9 +283,15 @@ src/
 │     ├─ spec.ts               search + describe   (loads the spec index, not the executor)
 │     ├─ run.ts                call + replay       (loads core/run)
 │     ├─ store.ts              history + inspect   (loads the store)
-│     └─ env.ts                env                 (loads the workspace only)
+│     ├─ env.ts                env                 (loads the workspace only)
+│     └─ mcp.ts                mcp                 (loads the MCP server)
+├─ mcp/
+│  ├─ protocol.ts              JSON-RPC 2.0 framing over stdio (ADR-0004)
+│  ├─ server.ts                initialize / ping / tools/list / tools/call — wiring only
+│  └─ tools.ts                 the six tools: zod in, core out, fence on the way back
 └─ core/
    ├─ errors.ts                 ApiPilotError, one class + stable `code` discriminant
+   ├─ views.ts                  the JSON projections BOTH adapters use — types-only imports
    ├─ body.ts                   decodeBody / formatBytes / capBytes (the byte-budget backstop)
    ├─ request/
    │  ├─ types.ts               HttpRequest, RequestBody, RetryPolicy, IDEMPOTENT_METHODS
@@ -283,7 +339,16 @@ src/
   searching four others at the same time would be a surprise.
 - **`env` with no argument does not resolve secrets.** Listing must keep working
   when `PROD_TOKEN` is missing from the shell, or one unset variable hides every
-  environment from you. Only `env <name>` resolves.
+  environment from you. Only `env <name>` resolves. `api_env` does the same.
+- **One zod schema per MCP tool does two jobs.** It is parsed against the incoming
+  arguments *and* serialized to the advertised JSON Schema via `z.toJSONSchema`.
+  The alternative — a hand-written schema next to a hand-written validation — is a
+  contract that drifts from its enforcement without anything failing.
+- **`api_call` returns two content blocks:** the JSON envelope first, the fenced
+  digest second. `payload()` in the MCP test suite depends on that order.
+- **The MCP server answers `tools/list` before `initialize`.** There is no session
+  state to be wrong about, which is what makes the one-line pipe in
+  `docs/guides/mcp-setup.md` §6 a usable smoke test.
 
 ---
 
@@ -336,6 +401,13 @@ pnpm exec vitest run -u                  # update goldens — READ THE DIFF
 pnpm exec vitest run spec-search         # the search-bet suite
 pnpm exec vitest run canary              # the secret-leakage suite
 pnpm exec vitest run cli                 # the CLI integration suite
+pnpm exec vitest run mcp                 # protocol conformance + the token budget
+
+# The MCP server is a normal process on two pipes. Needs a build first.
+echo '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' | node dist/cli/index.js mcp --dir .
+
+# What CI does for NFR N7, on Linux: the suite, with no route off loopback.
+sudo -E env "PATH=$PATH" unshare --net --fork sh -c 'ip link set lo up && exec pnpm test'
 ```
 
 `bench` and `docs:check` both read `dist/`. Build first or they measure

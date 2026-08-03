@@ -24,12 +24,13 @@ Commands:
   inspect <handle>      query a stored response: path, byte range, or headers
   history               list recorded runs, newest first
   env                   list environments, or show one resolved
+  mcp                   run the MCP server over stdio
 
 Options:
   -h, --help            show this help, or a command's help
   -v, --version         print the version
 
-Every command accepts --json for machine-readable output.
+Every command except \`mcp\` accepts --json for machine-readable output.
 Run \`api-pilot <command> --help\` for a command's own options.
 `;
 
@@ -49,6 +50,8 @@ async function dispatch(command: string, argv: readonly string[]): Promise<void>
       return (await import("./commands/store.js")).inspect(argv);
     case "env":
       return (await import("./commands/env.js")).env(argv);
+    case "mcp":
+      return (await import("./commands/mcp.js")).mcp(argv);
     default:
       writeError(`Unknown command: ${command}\n\n${HELP}`);
       process.exitCode = EXIT_USAGE;

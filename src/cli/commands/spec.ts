@@ -1,6 +1,7 @@
 import { parseArgs } from "node:util";
 import { ApiPilotError } from "../../core/errors.js";
 import { SpecIndex } from "../../core/spec/spec-index.js";
+import { operationView, searchView } from "../../core/views.js";
 import { Workspace } from "../../core/workspace/workspace.js";
 import { parseNumber } from "../args.js";
 import { emit, pad, pluralise } from "../output.js";
@@ -72,20 +73,7 @@ export async function search(argv: readonly string[]): Promise<void> {
 
   emit(
     values.json === true,
-    {
-      query,
-      total: index.size,
-      hits: hits.map((hit) => ({
-        id: hit.operation.id,
-        method: hit.operation.method,
-        path: hit.operation.path,
-        summary: hit.operation.summary,
-        deprecated: hit.operation.deprecated,
-        specId: hit.operation.specId,
-        score: hit.score,
-      })),
-      warnings: index.warnings,
-    },
+    { ...searchView(query, index.size, hits), warnings: index.warnings },
     () => {
       if (hits.length === 0) {
         return `No operations matched "${query}" (${pluralise(index.size, "operation")} indexed).`;
@@ -138,19 +126,9 @@ export async function describe(argv: readonly string[]): Promise<void> {
       : { maxBytes: parseNumber(values["max-bytes"], "--max-bytes") }),
   });
 
-  const operation = index.get(id);
   emit(
     values.json === true,
-    {
-      id: operation.id,
-      method: operation.method,
-      path: operation.path,
-      summary: operation.summary,
-      deprecated: operation.deprecated,
-      specId: operation.specId,
-      text,
-      warnings: index.warnings,
-    },
+    { ...operationView(index.get(id)), text, warnings: index.warnings },
     () => text,
   );
 }

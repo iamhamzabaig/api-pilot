@@ -1,0 +1,193 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`the MCP tool surface > matches its golden serialization 1`] = `
+[
+  {
+    "description": "Find HTTP operations across the loaded OpenAPI specs. The usual sequence is api_search, then api_describe, then api_call.",
+    "inputSchema": {
+      "properties": {
+        "limit": {
+          "description": "Max hits (default 10)",
+          "maximum": 50,
+          "minimum": 1,
+          "type": "integer",
+        },
+        "query": {
+          "description": "Natural language, e.g. "cancel a subscription"",
+          "type": "string",
+        },
+      },
+      "required": [
+        "query",
+      ],
+      "type": "object",
+    },
+    "name": "api_search",
+  },
+  {
+    "description": "One operation in full: parameters, request body, responses and auth, rendered within a byte budget.",
+    "inputSchema": {
+      "properties": {
+        "maxBytes": {
+          "description": "Output budget (default 1024)",
+          "maximum": 8192,
+          "minimum": 128,
+          "type": "integer",
+        },
+        "operationId": {
+          "description": "Id from api_search",
+          "type": "string",
+        },
+      },
+      "required": [
+        "operationId",
+      ],
+      "type": "object",
+    },
+    "name": "api_describe",
+  },
+  {
+    "description": "Execute one HTTP request. Returns a digest of the response and a handle — never the full body. Use api_inspect on the handle to drill in.",
+    "inputSchema": {
+      "properties": {
+        "body": {
+          "type": "string",
+        },
+        "confirm": {
+          "description": "Required for a mutating call against a production environment",
+          "type": "boolean",
+        },
+        "contentType": {
+          "type": "string",
+        },
+        "environment": {
+          "description": "Defaults to the workspace default",
+          "type": "string",
+        },
+        "headers": {
+          "additionalProperties": {
+            "type": "string",
+          },
+          "propertyNames": {
+            "type": "string",
+          },
+          "type": "object",
+        },
+        "maxBytes": {
+          "description": "Digest budget (default 2048)",
+          "maximum": 16384,
+          "minimum": 128,
+          "type": "integer",
+        },
+        "method": {
+          "description": "GET, POST, …",
+          "type": "string",
+        },
+        "url": {
+          "description": "Absolute, or relative to the environment baseUrl. May use {{vars}}",
+          "type": "string",
+        },
+      },
+      "required": [
+        "method",
+        "url",
+      ],
+      "type": "object",
+    },
+    "name": "api_call",
+  },
+  {
+    "description": "Query one stored response by handle: a JSONPath subset, a byte range, or its headers. Output is always capped; there is no full-body dump.",
+    "inputSchema": {
+      "properties": {
+        "handle": {
+          "description": "From api_call or api_history",
+          "type": "string",
+        },
+        "headers": {
+          "description": "Return response headers instead of the body",
+          "type": "boolean",
+        },
+        "maxBytes": {
+          "description": "Output budget (default 8192)",
+          "maximum": 65536,
+          "minimum": 128,
+          "type": "integer",
+        },
+        "path": {
+          "description": "JSONPath subset, e.g. data.items[0].id",
+          "type": "string",
+        },
+        "range": {
+          "description": "Byte window as offset:length",
+          "type": "string",
+        },
+      },
+      "required": [
+        "handle",
+      ],
+      "type": "object",
+    },
+    "name": "api_inspect",
+  },
+  {
+    "description": "List recorded runs, newest first, or replay one by handle.",
+    "inputSchema": {
+      "properties": {
+        "action": {
+          "description": "Default list",
+          "enum": [
+            "list",
+            "replay",
+          ],
+          "type": "string",
+        },
+        "confirm": {
+          "description": "replay: as api_call",
+          "type": "boolean",
+        },
+        "environment": {
+          "description": "replay: run against this environment instead",
+          "type": "string",
+        },
+        "handle": {
+          "description": "Required for replay",
+          "type": "string",
+        },
+        "limit": {
+          "description": "Default 20",
+          "maximum": 100,
+          "minimum": 1,
+          "type": "integer",
+        },
+        "method": {
+          "type": "string",
+        },
+        "status": {
+          "maximum": 9007199254740991,
+          "minimum": -9007199254740991,
+          "type": "integer",
+        },
+        "urlContains": {
+          "type": "string",
+        },
+      },
+      "type": "object",
+    },
+    "name": "api_history",
+  },
+  {
+    "description": "List the declared environments, or resolve one. Secret values are never returned — a variable backed by a secret reads as [redacted].",
+    "inputSchema": {
+      "properties": {
+        "name": {
+          "description": "Omit to list; give one to resolve it",
+          "type": "string",
+        },
+      },
+      "type": "object",
+    },
+    "name": "api_env",
+  },
+]
+`;
