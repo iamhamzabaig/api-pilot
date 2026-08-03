@@ -65,13 +65,20 @@ release engineering.
 
 ## 2. Git state
 
-Three commits on `main`, no remote configured. **M6 is uncommitted in the working
-tree** at the time of writing:
+No remote configured. `main` carries M0–M5:
 
 ```
 84f0401 docs: update checkpoint and README for M5
 440d3e5 feat(cli): M5 — seven commands over the engine
 461b93d feat: project foundations and core engine (M0-M4)
+```
+
+**M6 is one commit on `feat/mcp-server`, not yet on `main`.** BLUEPRINT §15 is
+trunk-based with squash merges and no direct commits to `main`; with no remote and
+no reviewer that reduces to:
+
+```sh
+git checkout main && git merge --squash feat/mcp-server && git commit
 ```
 
 M0–M4 went in as one commit rather than five: `src/index.ts` re-exports every
