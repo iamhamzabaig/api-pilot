@@ -65,8 +65,11 @@ api-pilot mcp --dir /absolute/path/to/your-project
 
 ## 3. Host configuration
 
-Replace `/absolute/path/to/your-project` throughout. Until API Pilot is published to
-npm, use the local form instead of `npx`:
+Replace `/absolute/path/to/your-project` throughout.
+
+`npx -y api-pilot` fetches the published package on demand and is the form to use.
+To run a local build instead — an unreleased commit, or a clone you are working on —
+swap the command for the built entry point:
 
 ```json
 { "command": "node", "args": ["/absolute/path/to/api-pilot/dist/cli/index.js", "mcp"] }

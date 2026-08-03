@@ -2,7 +2,7 @@
 
 API Pilot handles credentials and makes authenticated network requests on behalf of an AI assistant. That combination deserves an explicit threat model rather than a boilerplate reporting address.
 
-> **Pre-alpha notice.** The mitigations below are architectural commitments, not shipped and audited code. Do not use API Pilot against production systems until v0.1 is released and this notice is removed.
+> **Maturity notice, v0.1.0.** Every mitigation below is implemented and covered by tests, including a canary suite that injects unique credentials through every configuration path and asserts they appear in no output stream. None of it has been independently audited, and the tool has one real-world deployment behind it rather than a hundred. Read "What we do not defend against" before pointing it at anything critical, and classify production environments accurately — that classification is what arms the confirmation gate.
 
 ## Reporting a vulnerability
 

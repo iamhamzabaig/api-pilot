@@ -6,9 +6,10 @@ context and without ever showing it your credentials.**
 Works with Claude Code, Claude Desktop, Cursor, Zed and anything else that speaks
 MCP. Also a normal CLI you can use by hand.
 
-> **Status: pre-alpha (v0.0.0), not on npm yet.** Everything below works, but the
-> install step is "clone and build" until the first release lands. Where you see
-> `npx api-pilot`, use `node /path/to/api-pilot/dist/cli/index.js` for now.
+> **v0.1.0 — first release.** The engine, the CLI and the MCP server are complete and
+> tested, including against a real 490-operation API. Treat the surface as stable
+> enough to build on and the version number as honest about its age: before 1.0.0 a
+> minor bump can break something, and the [changelog](CHANGELOG.md) will say so.
 
 ---
 
@@ -52,43 +53,38 @@ endpoint instead of guessing.
 
 ## Install
 
-**Requires Node 22 or newer.**
+**Requires Node 22 or newer.** Nothing else — two production dependencies, no
+native builds, no post-install scripts.
 
-### Today — from source
-
-```sh
-git clone <this-repo> api-pilot
-cd api-pilot
-corepack enable pnpm
-pnpm install
-pnpm run build
-```
-
-That gives you `dist/cli/index.js`. Either call it directly:
-
-```sh
-node /path/to/api-pilot/dist/cli/index.js --version
-```
-
-…or put it on your `PATH` so `api-pilot` works anywhere:
-
-```sh
-npm link          # from inside the api-pilot directory
-api-pilot --version
-```
-
-### After the first npm release
-
-No install needed — `npx` fetches it on demand:
+Nothing to install if you do not want to; `npx` fetches it on demand:
 
 ```sh
 npx api-pilot --version
 ```
 
-Or install it once:
+Or install it once, so `api-pilot` works everywhere:
 
 ```sh
 npm install -g api-pilot
+```
+
+You can also add it to a project and script against it:
+
+```sh
+npm install --save-dev api-pilot
+```
+
+### From source
+
+For contributing, or to run an unreleased commit:
+
+```sh
+git clone https://github.com/iamhamzabaig/api-pilot.git
+cd api-pilot
+corepack enable pnpm
+pnpm install
+pnpm run build
+npm link            # optional: puts `api-pilot` on your PATH
 ```
 
 ---
@@ -183,12 +179,6 @@ the rest itself.
 
 ```sh
 claude mcp add api-pilot -- npx -y api-pilot mcp
-```
-
-Before the npm release:
-
-```sh
-claude mcp add api-pilot -- node /absolute/path/to/api-pilot/dist/cli/index.js mcp
 ```
 
 Check it with `/mcp` inside a session. You should see six tools.

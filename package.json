@@ -1,6 +1,6 @@
 {
   "name": "api-pilot",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "AI-native API execution engine for coding agents — discover, execute, and debug HTTP APIs from the terminal without blowing up your context window.",
   "keywords": [
     "api",
@@ -13,6 +13,14 @@
     "claude"
   ],
   "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/iamhamzabaig/api-pilot.git"
+  },
+  "homepage": "https://github.com/iamhamzabaig/api-pilot#readme",
+  "bugs": {
+    "url": "https://github.com/iamhamzabaig/api-pilot/issues"
+  },
   "type": "module",
   "engines": {
     "node": ">=22"
@@ -31,7 +39,8 @@
     }
   },
   "files": [
-    "dist"
+    "dist",
+    "!dist/**/*.map"
   ],
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
