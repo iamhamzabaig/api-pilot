@@ -7,7 +7,7 @@ roadmap and `docs/adr/` for the decisions that are already locked.
 
 ## 1. Where things stand
 
-**Milestones M0–M6 complete. M7 remains.**
+**Milestones M0–M6 complete. M7 is code-complete; what remains needs a human.**
 
 | | Milestone | State |
 |---|---|---|
@@ -18,19 +18,26 @@ roadmap and `docs/adr/` for the decisions that are already locked.
 | M4 | Spec discovery — load, index, search, describe — **the search bet** | done, measured |
 | M5 | CLI — seven commands, `--json`, cold-start gate | done, measured |
 | M6 | MCP server (6 tools) | done, measured — one criterion open, see §6 |
-| M7 | v0.1 release | **next** |
+| M7 | v0.1 release | **code done; 4 human-gated items, see §11** |
+
+**The next action is not code.** Everything M7 can build is built. What is left is
+creating the GitHub remote, verifying the server in two real MCP hosts, three
+external testers, and loading five real public specs — the checklist is
+`docs/RELEASING.md`, and §11 below says why each one resisted automation.
 
 ### Verification state at checkpoint
 
 All gates green on Windows / Node 24.18:
 
 ```
-pnpm run check          biome ci .  →  68 files, 0 errors, 0 warnings
+pnpm run check          biome ci .  →  76 files, 0 errors, 0 warnings
 pnpm run typecheck      tsc --noEmit → clean
 pnpm run build          tsc -p tsconfig.build.json → dist/
-pnpm run test:coverage  269 passed (21 files); 93.7% stmts, 88.0% branches
-pnpm run bench          cold start p95 69–124 ms (budget 200 ms) — see the note below
+pnpm run test:coverage  281 passed (22 files); 94.1% stmts, 88.3% branches
+pnpm run bench          cold start p50 63.0 ms, p95 76.2 ms (budget 200 ms)
 pnpm run docs:check     docs/cli.md up to date
+pnpm run cost:check     README token-cost table up to date
+pnpm run example        examples/quickstart — every documented command works
 node dist/cli/index.js --version → 0.0.0
 echo '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' | node dist/cli/index.js mcp → 6 tools
 ```
@@ -55,17 +62,28 @@ regression-gate rework already noted in §7.
 | A 1,000-operation spec stays interactive | index **24 ms**, search **0.44 ms** |
 | A 1,000-operation spec adds zero MCP tools | 6 tools, byte-identical serialization |
 | The whole tool surface fits a context budget (N3) | **~822 tokens**, budget 1,500 |
-| The CLI starts fast enough to replace `curl` (N1) | p95 **69.1 ms**, budget 200 ms |
+| The CLI starts fast enough to replace `curl` (N1) | p95 **76.2 ms**, budget 200 ms |
 
 If either bet had failed, ADR-0002 was wrong and one-tool-per-operation was the
-better design. Neither did. **Nothing structurally risky is left** — M7 is
-release engineering.
+better design. Neither did. **Nothing structurally risky is left.**
+
+M7 added the reproducible version of the first claim: `pnpm run cost` measures
+digest-plus-one-inspect against four fixtures and writes the table into the
+README, staleness-gated like `docs:check`. It is deliberately unflattering — on a
+1 MB list the round-trip costs **0.05%** of the body, and on a 202-byte error
+envelope it costs **202%**, because a digest has fixed overhead and loses on
+anything already small enough to paste. Stated in the README rather than hidden by
+choosing only large fixtures.
 
 ---
 
 ## 2. Git state
 
-No remote configured. `main` carries M0–M5:
+**Still no remote.** Creating it is step 1 of `docs/RELEASING.md` and it blocks
+provenance: the attestation comes from the workflow's OIDC identity, so a release
+published from a laptop cannot carry one.
+
+`main` carries M0–M5:
 
 ```
 84f0401 docs: update checkpoint and README for M5
@@ -73,13 +91,23 @@ No remote configured. `main` carries M0–M5:
 461b93d feat: project foundations and core engine (M0-M4)
 ```
 
-**M6 is one commit on `feat/mcp-server`, not yet on `main`.** BLUEPRINT §15 is
-trunk-based with squash merges and no direct commits to `main`; with no remote and
-no reviewer that reduces to:
+Two branches are ahead of it, and the order matters:
+
+```
+feat/mcp-server    5fbd9bd  M6 — the MCP server + its checkpoint update
+feat/v0.1-release  aa84b2e  M7, branched from the tip of feat/mcp-server
+```
+
+`feat/v0.1-release` **contains** M6, so squash-merging both into `main` would
+duplicate it. Merge them in order, or squash the pair as one release commit:
 
 ```sh
-git checkout main && git merge --squash feat/mcp-server && git commit
+git checkout main && git merge --squash feat/mcp-server && git commit   # M6
+git merge --squash feat/v0.1-release && git commit                      # M7
 ```
+
+M7's three commits are worth keeping distinct in a review — the redaction fix, the
+executable example, and the release plumbing are independent changes.
 
 M0–M4 went in as one commit rather than five: `src/index.ts` re-exports every
 module, so per-milestone commits would not have typechecked, and history that
@@ -98,7 +126,8 @@ does not build is not history.
 ### Dependencies
 
 **Production: 2 of a 12 cap** (NFR N10) — `yaml`, `zod`.
-Dev: `@biomejs/biome`, `@types/node`, `typescript`, `vitest`.
+Dev: `@biomejs/biome`, `@changesets/cli`, `@types/node`, `@vitest/coverage-v8`,
+`typescript`, `vitest`.
 
 Three dependencies were considered and deliberately not taken. Do not add them
 without reading the reasoning first:
@@ -119,7 +148,7 @@ without reading the reasoning first:
 |---|---|
 | 0001 | TypeScript on Node 22+, ESM only. Contains an **explicit revisit trigger** for a Go port so nobody rewrites on vibes. |
 | 0002 | **Fixed six-tool MCP surface.** `api_search`, `api_describe`, `api_call`, `api_inspect`, `api_history`, `api_env`. A seventh tool requires a new ADR naming what it displaces. |
-| 0003 | Lazy `$ref` resolution instead of a dereferencing library; in-house search ranker. Amends BLUEPRINT §12.3. |
+| 0003 | Lazy `$ref` resolution instead of a dereferencing library; in-house search ranker; **a configured spec URL is its own authorisation, not the host allowlist** (decision 3, M7). Amends BLUEPRINT §12.3. |
 | 0004 | **Hand-rolled JSON-RPC over stdio**, not `@modelcontextprotocol/sdk`. Amends BLUEPRINT §12.6. stdio only; a remote transport revisits this. |
 
 Two open questions from BLUEPRINT §21 were **resolved by the user on 2026-07-31**:
@@ -268,11 +297,17 @@ becomes "done".
 | **`--body` takes text only.** No `@file` shorthand, no streaming upload, no multipart. `--body-file` covers the common case; a binary body is not replayable (see §6). | when a real use case lands |
 | ~~**`api_inspect` output does not pass a redactor.**~~ **Closed in M7.** The metadata record now carries `environment`, and `inspectRun()` in `src/core/inspect/inspect-run.ts` rebuilds that environment's redactor before rendering. Both adapters route through it. Two cases cannot rebuild one — a pre-M7 record, and an environment whose secrets no longer resolve — and those return `redacted: false` with a warning rather than refusing, because losing access to a stored response over an unset shell variable is worse. Re-resolving gets *today's* secrets, so a value rotated since the run is still not caught. | done, with the rotation caveat |
 | **MCP is stdio only.** No HTTP/SSE transport; that is the case where ADR-0004 says to take the SDK instead. | v1, demand-gated |
-| CodeQL, Dependabot/Renovate, Changesets, issue/PR templates | M7 |
-| `.apipilot/` example workspace under `examples/`, executed in CI | M7 |
+| **A digest costs more than the raw body on small responses** — 202% on a 202-byte error envelope, measured by `pnpm run cost`. The obvious fix is to inline the body when it is already under the budget, which is a change to what every model sees on every small response, so it wants its own decision rather than a quiet tweak during release week. | v0.2 |
+| ~~CodeQL, Dependabot/Renovate, Changesets, issue/PR templates~~ | done in M7 |
+| ~~`.apipilot/` example workspace under `examples/`, executed in CI~~ | done in M7 — `examples/quickstart`, `pnpm run example` |
 
 Closed in M5: the run log, the coverage gate (85% on `src/core`), the
 cold-start benchmark, and docs generated from source with a staleness check.
+
+Closed in M7: the stored-run redaction hole, spec loading by URL, the executable
+example, the reproducible token-cost table, and the release plumbing —
+changesets, a provenance publish workflow, CodeQL, Dependabot, issue and PR
+templates.
 
 Closed in M6: the MCP server, the tool-surface token gate, and the egress-blocked
 CI job — the suite re-runs inside a network namespace with only loopback up, so
@@ -411,12 +446,16 @@ pnpm run typecheck
 pnpm run build
 pnpm run bench               # cold start, own config — needs a build first
 pnpm run docs                # regenerate docs/cli.md; docs:check to verify
+pnpm run cost                # regenerate the README token table; cost:check to verify
+pnpm run example             # examples/quickstart, end to end — needs a build first
+pnpm changeset               # write a changeset; release:version consumes them
 
 pnpm exec vitest run -u                  # update goldens — READ THE DIFF
 pnpm exec vitest run spec-search         # the search-bet suite
 pnpm exec vitest run canary              # the secret-leakage suite
 pnpm exec vitest run cli                 # the CLI integration suite
 pnpm exec vitest run mcp                 # protocol conformance + the token budget
+pnpm exec vitest run spec-remote         # spec-by-URL: cache, staleness, redirects
 
 # The MCP server is a normal process on two pipes. Needs a build first.
 echo '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' | node dist/cli/index.js mcp --dir .
@@ -428,3 +467,67 @@ sudo -E env "PATH=$PATH" unshare --net --fork sh -c 'ip link set lo up && exec p
 `bench` and `docs:check` both read `dist/`. Build first or they measure
 nothing — `bench` skips silently when `dist/` is absent, which is why CI
 builds before it tests.
+
+---
+
+## 11. M7 as built, and the four things it could not close
+
+**Acceptance criteria from BLUEPRINT §20:**
+
+| Criterion | State |
+|---|---|
+| README carries a reproducible token-cost comparison | `pnpm run cost`, staleness-gated in CI |
+| `examples/` run in CI | `examples/quickstart`, `pnpm run example` |
+| SECURITY.md complete | written in M0; the pre-alpha notice comes out at publish |
+| Published to npm with provenance | **workflow written, never run — no remote, no token** |
+| `npx api-pilot` works clean on all three OSes | **smoke job written; it can only run after a publish** |
+| 3 external testers complete the §19 success test | **not started** |
+| *(from M6)* verified working in Claude Code and one other host | **not done** |
+
+### What M7 decided
+
+- **The redaction boundary now closes on stored data, not just live data.** The
+  metadata record carries `environment`; `inspectRun()` rebuilds that
+  environment's redactor. The interesting part is the failure mode: when the
+  redactor *cannot* be rebuilt the output is returned unredacted with
+  `redacted: false` and a warning, rather than refused. Refusing would mean an
+  unset shell variable locks you out of a stored response. Two canary cases assert
+  the honest version — flag false, canary present — so an adapter that silently
+  drops the flag fails a test rather than leaking.
+- **Re-resolving secrets gets today's values.** A credential rotated since the run
+  is not caught. The alternative is storing the resolved secrets beside the
+  response so they can be matched later, and that file would be the leak.
+- **A configured spec URL is its own authorisation** (ADR-0003 decision 3). Not
+  the host allowlist: it is per-environment, specs are per-workspace, and gating
+  on it would make `search` resolve secrets before it could answer anything.
+- **`fromValue` is the remote loader's entry point**, so a fetched spec cannot
+  follow a `$ref` into a sibling URL. Deriving new URLs from document contents is
+  the thing SECURITY.md T2 says we never do.
+- **The token-cost table is unflattering on purpose.** Two of four rows show API
+  Pilot costing more than the raw body. Picking only large fixtures would have
+  produced a better-looking README and a worse project.
+- **The version stays at `0.0.0`.** A changeset for 0.1.0 is committed;
+  `pnpm run release:version` produces the bump and the changelog when someone is
+  actually ready to publish. Bumping now would put a release in the repo that does
+  not exist on npm.
+- **Publishing is tag-driven, gated on a `release` environment**, and re-runs the
+  whole suite on the tagged commit. "CI was green on some ancestor" is not the
+  claim a published tarball makes.
+
+### Why the four open items resisted automation
+
+Each one needs a person, and saying which kind of person is the useful part:
+
+1. **The remote and the npm token.** Provenance is an attestation about *where* a
+   build happened; it cannot be manufactured locally. Nothing else in M7 unblocks
+   until this exists. `docs/RELEASING.md` §"Once, before the first release".
+2. **Two real MCP hosts.** The conformance suite drives real streams and covers 26
+   cases, and it still cannot produce the fixture a host produces: an unexpected
+   `initialize` payload, or a working directory that is not where you assumed.
+   This is the criterion most likely to find something.
+3. **Three external testers.** The evidence being sought is that someone who did
+   not build it can complete the §19 task. No test can stand in for that.
+4. **Five real public specs.** CI cannot reach the network by design (NFR N7), and
+   Stripe's spec is 6 MB. Download them into `tests/fixtures/specs/` — globbed,
+   `local-*.yaml` gitignored — and run the suite. Expect parser gaps; that is the
+   point of the exercise, not a reason to skip it.
